@@ -1,0 +1,10 @@
+# ignore pycache folders
+__pycache__/
+
+# subfolder pycache folders
+core/__pycache__/
+minifiers/__pycache__/
+ui/__pycache__/
+utils/__pycache__/
+
+# should i ignore pyinstaller idk
