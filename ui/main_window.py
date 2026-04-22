@@ -9,9 +9,10 @@ from PyQt6.QtWidgets import (
 )
 
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
+from PyQt6.QtCore import QThread
 
-from core.manager import minify_file
-from utils.util import get_filename, format_size
+from core.worker import MinifyWorker
+from utils.util import get_filename
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -92,36 +93,30 @@ class MainWindow(QWidget):
             self.log(f"[WARN] No target files specified")
             self.export_btn.setEnabled(False)
             return
-
-        self.last_results = []
-
-        for path in self.file_paths:
-            try:
-                # original size
-                original_size = os.path.getsize(path)
-
-                result = minify_file(path)
-                self.last_results.append((path, result))
-
-                # minified size
-                minified_size = len(result.encode("utf-8"))
-
-                # % saved
-                reduction = (100 * (original_size - minified_size) / original_size) if (original_size > 0) else 0
-
-                preview_text = f"{result[:80]}..." if (len(result) > 80) else result
-
-                self.log(f"[SUCCESS] Minified {get_filename(path)}")
-                self.log(f"[SUCCESS] Preview: {preview_text}")
-
-                # log reduced file size
-                self.log(f"[INFO] Size reduced from {format_size(original_size)} to {format_size(minified_size)} (-{reduction:.1f}%)")
-
-            except Exception as e:
-                self.log(f"[ERROR] {get_filename(path)} : {str(e)}")
-                self.export_btn.setEnabled(False)
         
-        self.export_btn.setEnabled(True)
+        # disable buttons during processing
+        self.minify_btn.setEnabled(False)
+        self.export_btn.setEnabled(False)
+
+        self.log("[INFO] Starting minification...")
+
+        # create thread + worker
+        self.mthread = QThread()
+        self.worker = MinifyWorker(self.file_paths)
+
+        self.worker.moveToThread(self.mthread)
+
+        # connect signals
+        self.mthread.started.connect(self.worker.run)
+        self.worker.log.connect(self.log)
+        self.worker.finished.connect(self.on_minify_finished)
+
+        # cleanup
+        self.worker.finished.connect(self.mthread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.mthread.finished.connect(self.mthread.deleteLater)
+
+        self.mthread.start()
 
     def export_file(self):
         if not hasattr(self, "last_results") or not self.last_results:
@@ -153,6 +148,14 @@ class MainWindow(QWidget):
     def log(self, message: str) -> None:
         self.output.appendPlainText(message)
         self.output.verticalScrollBar().setValue(self.output.verticalScrollBar().maximum())
+
+    def on_minify_finished(self, results):
+        self.last_results = results
+
+        self.log("[INFO] Minification complete")
+
+        self.minify_btn.setEnabled(True)
+        self.export_btn.setEnabled(True)
 
     @override
     def dragEnterEvent(self, event: QDragEnterEvent):
