@@ -20,6 +20,15 @@ QPushButton {
     border-radius: 6px;
 }
 
+QPushButton:disabled { 
+    color: #5a5a5a;
+    background-color: #2a2a2a;
+}
+QPushButton:enabled { 
+    color: #ddd;
+    background-color: #2d2d2d;
+}
+
 QPushButton:hover { background-color: #3a3a3a; }
 QPushButton:pressed { background-color: #555; }
 
@@ -28,7 +37,36 @@ QPlainTextEdit {
     background-color: #111;
     border: 1px solid #444;
     padding: 5px;
+    border-radius: 6px;
+}
+
+/* use a monospace font for showing logs */
+QPlainTextEdit#logBox {
+    font-family: Consolas, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New;
 }
 
 /* labels */
 QLabel { color: #aaa; }
+
+/* scrollbar settings */
+QScrollBar:vertical {
+    background: #1e1e1e;
+    width: 8px;
+    margin: 0px;
+}
+QScrollBar::handle:vertical {
+    background: #555;
+    border-radius: 4px;
+    min-height: 20px;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    background: none;
+    height: 0px;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: #1e1e1e;
+}

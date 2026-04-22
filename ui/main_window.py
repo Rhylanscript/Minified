@@ -1,9 +1,14 @@
 # ui/main_window.py
 
+import os
+
+from typing import override
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QFileDialog, 
-    QPlainTextEdit, QHBoxLayout, QLabel
+    QPlainTextEdit, QHBoxLayout, QLabel,
 )
+
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 
 from core.manager import minify_file
 from utils.util import get_filename
@@ -15,6 +20,8 @@ class MainWindow(QWidget):
         # config window
         self.setWindowTitle("Minified")
         self.resize(600, 400)
+
+        self.setAcceptDrops(True)
 
         layout = QVBoxLayout()
 
@@ -39,6 +46,9 @@ class MainWindow(QWidget):
         # --- output log
         self.output = QPlainTextEdit()
         self.output.setReadOnly(True)
+        self.output.setObjectName("logBox")
+        
+        self.log("[INFO] Minified Initialised")
 
         # --- add to main widget
         layout.addLayout(file_layout)
@@ -47,8 +57,8 @@ class MainWindow(QWidget):
 
         self.setLayout(layout)
 
-        self.file_path = None
-        self.last_result = None
+        self.file_paths = []
+        self.last_results = []
 
         # connect button actions
         self.open_btn.clicked.connect(self.open_file)
@@ -56,54 +66,98 @@ class MainWindow(QWidget):
         self.export_btn.clicked.connect(self.export_file)
         self.clear_btn.clicked.connect(self.clear_logs)
 
+        self.minify_btn.setEnabled(False)
+        self.export_btn.setEnabled(False)
+
     def open_file(self):
-        file, _ = QFileDialog.getOpenFileName(self)
-        if file: 
-            self.file_path = file
-            self.file_label.setText(get_filename(str(file)))
-            self.log(f"[INFO] Selected file: {get_filename(str(file))}")
+        files, _ = QFileDialog.getOpenFileNames(self)
+
+        if files: 
+            self.file_paths = files
+            names = [get_filename(f) for f in files]
+            
+            self.file_label.setText(f"{len(files)} file(s) selected")
+            self.log(f"[INFO] Selected files:")
+            for name in names: self.log(f"  - {name}")
+
+            self.minify_btn.setEnabled(True)
+
         else:
             self.log(f"[ERROR] Failed to target file")
             self.file_label.setText("No file selected")
+            self.minify_btn.setEnabled(False)
 
     def run_minify(self):
-        if not self.file_path: 
-            self.log(f"[WARN] No target file specified")
+        if not self.file_paths: 
+            self.log(f"[WARN] No target files specified")
+            self.export_btn.setEnabled(False)
             return
 
-        try:
-            result = minify_file(self.file_path)
-            self.last_result = result
+        self.last_results = []
 
-            self.log(f"[SUCCESS] Successfully minified {get_filename(self.file_path)}")
-            self.log(f"[SUCCESS] Preview: {result[:100]}...")
+        for path in self.file_paths:
+            try:
+                result = minify_file(path)
+                self.last_results.append((path, result))
 
-        except Exception as e:
-            self.log(f"[ERROR] {str(e)}")
+                preview_text = f"{result[:80]}..." if (len(result) > 80) else result
+                
+                # self.log(f"length {len(result)}")
+
+                self.log(f"[SUCCESS] Minified {get_filename(path)}")
+                self.log(f"[SUCCESS] Preview: {preview_text}")
+
+            except Exception as e:
+                self.log(f"[ERROR] {get_filename(path)} : {str(e)}")
+                self.export_btn.setEnabled(False)
+        
+        self.export_btn.setEnabled(True)
 
     def export_file(self):
-        if not self.last_result:
+        if not hasattr(self, "last_results") or not self.last_results:
             self.log("[WARN] Nothing to export")
             return
         
-        file, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Minified File",
-            f"generated/{get_filename(self.file_path.replace(".", ".min."))}"
-        )
+        folder = QFileDialog.getExistingDirectory(self, "Select Output Folder")
+        if not folder: return
 
-        if file:
+        for path, content in self.last_results:
             try:
-                with open(file, "w", encoding="utf-8") as f:
-                    f.write(self.last_result)
+                name = os.path.basename(path)
+                base, ext = os.path.splitext(name)
+                new_name = f"{base}.min{ext}"
 
-                self.log(f"[SUCCESS] Exported to: {file}")
+                output_path = os.path.join(folder, new_name)
+
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+
+                self.log(f"[SUCCESS] Exported {new_name}")
 
             except Exception as e:
-                self.log(f"[ERROR] Export failed: {str(e)}")
+                self.log(f"[ERROR] Export failed for {name}: {str(e)}")
 
     def clear_logs(self):
         self.output.clear()
 
     def log(self, message: str) -> None:
         self.output.appendPlainText(message)
+        self.output.verticalScrollBar().setValue(self.output.verticalScrollBar().maximum())
+
+    @override
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().hasUrls(): event.acceptProposedAction()
+
+    @override
+    def dropEvent(self, event: QDropEvent):
+        files = [url.toLocalFile() for url in event.mimeData().urls()]
+
+        if files:
+            self.file_paths = files
+
+            self.file_label.setText(f"{len(files)} file(s) selected")
+
+            self.log("[INFO] Files dropped:")
+            for f in files: self.log(f"  - {get_filename(f)}")
+
+            self.minify_btn.setEnabled(True)
