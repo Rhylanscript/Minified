@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## [1.1.0] - 2026-22-04
+### Added 
+- An export button to export the minified file in a destination of the user's choice
+- A `.qss` stylesheet file to set styling of the application
+- Exporting files defaults to `generated/` directory for ease of use.
+    - Maybe change this to a common directory such as `%appdata%/` in future?  
+
+### Changed
+- MAJOR updates to the UI, looks much cleaner and more modern now
+- Used `assets/styles.qss` to set the styling of the application
+- Only logs first 100 characters of minified file to maintain cleanliness in logs
+
+
 ## [1.0.0] - 2026-22-04
 ### Added
 - GUI to use the program
