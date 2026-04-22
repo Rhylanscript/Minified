@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 
 from core.manager import minify_file
-from utils.util import get_filename
+from utils.util import get_filename, format_size
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -97,15 +97,25 @@ class MainWindow(QWidget):
 
         for path in self.file_paths:
             try:
+                # original size
+                original_size = os.path.getsize(path)
+
                 result = minify_file(path)
                 self.last_results.append((path, result))
 
+                # minified size
+                minified_size = len(result.encode("utf-8"))
+
+                # % saved
+                reduction = (100 * (original_size - minified_size) / original_size) if (original_size > 0) else 0
+
                 preview_text = f"{result[:80]}..." if (len(result) > 80) else result
-                
-                # self.log(f"length {len(result)}")
 
                 self.log(f"[SUCCESS] Minified {get_filename(path)}")
                 self.log(f"[SUCCESS] Preview: {preview_text}")
+
+                # log reduced file size
+                self.log(f"[INFO] Size reduced from {format_size(original_size)} to {format_size(minified_size)} (-{reduction:.1f}%)")
 
             except Exception as e:
                 self.log(f"[ERROR] {get_filename(path)} : {str(e)}")

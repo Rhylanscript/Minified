@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## [1.2.1] - 2026-22-04
+### Added
+- File size overview (original size vs minified size & reduction %)
+<br>
+
 ## [1.2.0] - 2026-22-04
 ### Added 
 - Drag and drop functionality (files can be dropped onto the app)
