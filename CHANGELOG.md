@@ -1,9 +1,16 @@
 # CHANGELOG
 
+## [1.2.3] - 2026-23-04
+### Added 
+- Logs now show the time at which they were sent
+- Modified default window size
+<br>
+
 ## [1.2.2] - 2026-22-04
 ### Changed
 - Moved minification function in `ui/main_window.py` to `core/worker.py`
 - Minification function now runs on a Thread in `ui/main_window.py` as to not freeze window while active
+<br>
 
 ## [1.2.1] - 2026-22-04
 ### Added

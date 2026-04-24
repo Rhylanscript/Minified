@@ -12,11 +12,11 @@ class MinifyWorker(QObject):
 
     # export_btn = pyqtSignal(bool)
 
-    def __init__(self, file_paths):
+    def __init__(self, file_paths: list) -> None:
         super().__init__()
         self.file_paths = file_paths
 
-    def run(self):
+    def run(self) -> None:
         results = []
 
         total_original = 0
@@ -51,7 +51,7 @@ class MinifyWorker(QObject):
         # summary
         if total_original > 0:
             total_reduction = 100 * (total_original - total_minified) / total_original
-            self.log.emit("--------------------------------------------------")
+            self.log.emit("--------------------------------------------------")  #, log_time = False)
             self.log.emit(f"[INFO] Total size reduced from {format_size(total_original)} to {format_size(total_minified)} (-{reduction:.1f}%)")
 
         self.finished.emit(results)

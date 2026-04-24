@@ -2,6 +2,7 @@
 
 import os
 
+from datetime import datetime
 from typing import override
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QFileDialog, 
@@ -20,7 +21,7 @@ class MainWindow(QWidget):
 
         # config window
         self.setWindowTitle("Minified")
-        self.resize(600, 400)
+        self.resize(800, 500)
 
         self.setAcceptDrops(True)
 
@@ -79,7 +80,7 @@ class MainWindow(QWidget):
             
             self.file_label.setText(f"{len(files)} file(s) selected")
             self.log(f"[INFO] Selected files:")
-            for name in names: self.log(f"  - {name}")
+            for name in names: self.log(f"  - {name}", log_time = False)
 
             self.minify_btn.setEnabled(True)
 
@@ -123,6 +124,8 @@ class MainWindow(QWidget):
             self.log("[WARN] Nothing to export")
             return
         
+        # if len(self.last_results) == 1:
+        # else:
         folder = QFileDialog.getExistingDirectory(self, "Select Output Folder")
         if not folder: return
 
@@ -145,8 +148,11 @@ class MainWindow(QWidget):
     def clear_logs(self):
         self.output.clear()
 
-    def log(self, message: str) -> None:
-        self.output.appendPlainText(message)
+    def log(self, message: str, log_time: bool = True) -> None:
+
+        log_msg = f"[{datetime.now().strftime("%H:%M:%S")}] {message}" if log_time else f"    {message}"
+
+        self.output.appendPlainText(log_msg)
         self.output.verticalScrollBar().setValue(self.output.verticalScrollBar().maximum())
 
     def on_minify_finished(self, results):
