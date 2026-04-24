@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## [1.2.4] - 2026-23-04
+### Changed
+- User now has the option to choose filename when exporting singular files.
+
+### Fixed
+- Clicking export now opens to `generated/` by default
+    - Maybe change to a common folder like `%localappdata%/` or `Downloads/` in future?
+<br>
+
 ## [1.2.3] - 2026-23-04
 ### Added 
 - Logs now show the time at which they were sent

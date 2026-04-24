@@ -124,26 +124,55 @@ class MainWindow(QWidget):
             self.log("[WARN] Nothing to export")
             return
         
-        # if len(self.last_results) == 1:
-        # else:
-        folder = QFileDialog.getExistingDirectory(self, "Select Output Folder")
-        if not folder: return
+        # set the default directory
+        default_dir = os.path.join(os.getcwd(), "generated")
+        os.makedirs(default_dir, exist_ok = True)
 
-        for path, content in self.last_results:
+        if len(self.last_results) == 1:
+            path, content = self.last_results[0]
+            name = get_filename(path)
+            base, ext = os.path.splitext(name)
+            default_name = f"{base}.min{ext}"
+
+            save_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save Minified File",
+                os.path.join(default_dir, default_name)
+            )
+
+            if not save_path: return
+
             try:
-                name = os.path.basename(path)
-                base, ext = os.path.splitext(name)
-                new_name = f"{base}.min{ext}"
-
-                output_path = os.path.join(folder, new_name)
-
-                with open(output_path, "w", encoding="utf-8") as f:
+                with open(save_path, "w", encoding="utf-8") as f:
                     f.write(content)
 
-                self.log(f"[SUCCESS] Exported {new_name}")
+                self.log(f"[SUCCESS] Exported: {get_filename(save_path)}")
 
             except Exception as e:
-                self.log(f"[ERROR] Export failed for {name}: {str(e)}")
+                self.log(f"[ERROR] Export failed: {str(e)}")
+        else:
+            folder = QFileDialog.getExistingDirectory(
+                self, 
+                "Select Output Folder",
+                default_dir
+            )
+            if not folder: return
+
+            for path, content in self.last_results:
+                try:
+                    name = os.path.basename(path)
+                    base, ext = os.path.splitext(name)
+                    new_name = f"{base}.min{ext}"
+
+                    output_path = os.path.join(folder, new_name)
+
+                    with open(output_path, "w", encoding="utf-8") as f:
+                        f.write(content)
+
+                    self.log(f"[SUCCESS] Exported {new_name}")
+
+                except Exception as e:
+                    self.log(f"[ERROR] Export failed for {name}: {str(e)}")
 
     def clear_logs(self):
         self.output.clear()
