@@ -7,6 +7,12 @@ from core.manager import minify_file
 from utils.util import format_size, get_filename
 
 class MinifyWorker(QObject):
+
+    error   = pyqtSignal(str)
+    warn    = pyqtSignal(str)
+    success = pyqtSignal(str)
+    info    = pyqtSignal(str)
+
     log = pyqtSignal(str)
     finished = pyqtSignal(list)
 
@@ -27,6 +33,12 @@ class MinifyWorker(QObject):
                 original_size = os.path.getsize(path)
 
                 result = minify_file(path)
+
+                if type(result) == int: 
+                    _, ext = os.path.splitext(path)
+                    self.warn.emit(f"No minifier exists for '{ext}' files") 
+                    continue
+                
                 results.append((path, result))
 
                 minified_size = len(result.encode("utf-8"))
@@ -41,17 +53,18 @@ class MinifyWorker(QObject):
 
                 preview_text = f"{result[:80]}..." if (len(result) > 80) else result
 
-                self.log.emit(f"[SUCCESS] Minified {get_filename(path)}")
-                self.log.emit(f"[SUCCESS] Preview: {preview_text}")
-                self.log.emit(f"[INFO] Size reduced from {format_size(original_size)} to {format_size(minified_size)} (-{reduction:.1f}%)")
+                self.success.emit(f"Minified {get_filename(path)}")
+                self.success.emit(f"Preview: {preview_text}")
+                self.info.emit(f"Size reduced from {format_size(original_size)} to {format_size(minified_size)} (-{reduction:.1f}%)")
 
             except Exception as e:
-                self.log(f"[ERROR] {get_filename(path)} : {str(e)}")
+                self.error.emit(f"{get_filename(path)} : {str(e)}")
+                self.error.emit(f"result : {result}")
 
         # summary
         if total_original > 0:
             total_reduction = 100 * (total_original - total_minified) / total_original
             self.log.emit("--------------------------------------------------")  #, log_time = False)
-            self.log.emit(f"[INFO] Total size reduced from {format_size(total_original)} to {format_size(total_minified)} (-{reduction:.1f}%)")
+            self.info.emit(f"Total size reduced from {format_size(total_original)} to {format_size(total_minified)} (-{total_reduction:.1f}%)")
 
         self.finished.emit(results)

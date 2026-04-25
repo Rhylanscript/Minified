@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [1.2.6] - 2026-25-04
+### Added 
+- Coloured text to log message types to improve ui
+
+### Fixed
+- Automatically added prefixes and colour formatting to log messages via functions in the `MainWindow` class, `error()`, `warn()`, `success()`, `info()`
+- Improved error handling for minification of unsupported types, warns user instead of showing unreadable error
+
 ## [1.2.5] - 2026-25-04
 ### Added
 - Exports now show links to file in logs

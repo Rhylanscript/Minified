@@ -1,5 +1,6 @@
 # ui/main_window.py
 
+# imports
 import os
 import subprocess
 import sys
@@ -10,16 +11,24 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QFileDialog, 
     QTextBrowser, QHBoxLayout, QLabel,
 )
-
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 from PyQt6.QtCore import QThread
 
+# import locals
 from core.worker import MinifyWorker
 from utils.util import get_filename
 
 class MainWindow(QWidget):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
+
+        # --- CLASS VARIABLES
+
+        self.file_paths = []
+        self.last_results = []
+        
+        self.last_export_dir = None
+        self.log_text_color = "white"
 
         # config window
         self.setWindowTitle("Minified")
@@ -59,7 +68,11 @@ class MainWindow(QWidget):
         self.output.setOpenExternalLinks(True)
 
         # log initialisation
-        self.log("[INFO] Minified Initialised")
+        self.info("Minified Initialised")
+
+        # self.warn("testing warnings")
+        # self.error("testing errors")
+        # self.success("testing success")
 
         # --- add to main widget
         layout.addLayout(file_layout)
@@ -79,14 +92,7 @@ class MainWindow(QWidget):
         self.minify_btn.setEnabled(False)
         self.export_btn.setEnabled(False)
 
-        # --- CLASS VARIABLES
-
-        self.file_paths = []
-        self.last_results = []
-        
-        self.last_export_dir = None
-
-    def open_file(self):
+    def open_file(self) -> None:
         files, _ = QFileDialog.getOpenFileNames(self)
 
         if files: 
@@ -94,19 +100,19 @@ class MainWindow(QWidget):
             names = [get_filename(f) for f in files]
             
             self.file_label.setText(f"{len(files)} file(s) selected")
-            self.log(f"[INFO] Selected files:")
+            self.info(f"Selected files:")
             for name in names: self.log(f"  - {name}", log_time = False)
 
             self.minify_btn.setEnabled(True)
 
         else:
-            self.log(f"[ERROR] Failed to target file")
+            self.error(f"Failed to target file")
             self.file_label.setText("No file selected")
             self.minify_btn.setEnabled(False)
 
-    def run_minify(self):
+    def run_minify(self) -> None:
         if not self.file_paths: 
-            self.log(f"[WARN] No target files specified")
+            self.warn(f"No target files specified")
             self.export_btn.setEnabled(False)
             return
         
@@ -114,7 +120,7 @@ class MainWindow(QWidget):
         self.minify_btn.setEnabled(False)
         self.export_btn.setEnabled(False)
 
-        self.log("[INFO] Starting minification...")
+        self.info("Starting minification...")
 
         # create thread + worker
         self.mthread = QThread()
@@ -124,8 +130,13 @@ class MainWindow(QWidget):
 
         # connect signals
         self.mthread.started.connect(self.worker.run)
-        self.worker.log.connect(self.log)
         self.worker.finished.connect(self.on_minify_finished)
+        
+        self.worker.log.connect(self.log)
+        self.worker.error.connect(self.error)
+        self.worker.warn.connect(self.warn)
+        self.worker.success.connect(self.success)
+        self.worker.info.connect(self.info)
 
         # cleanup
         self.worker.finished.connect(self.mthread.quit)
@@ -134,9 +145,9 @@ class MainWindow(QWidget):
 
         self.mthread.start()
 
-    def export_file(self):
+    def export_file(self) -> None:
         if not hasattr(self, "last_results") or not self.last_results:
-            self.log("[WARN] Nothing to export")
+            self.warn("Nothing to export")
             return
         
         # set the default directory
@@ -164,13 +175,13 @@ class MainWindow(QWidget):
                 self.last_export_dir = os.path.dirname(save_path)
                 self.open_folder_btn.setEnabled(True)
 
-                self.log(
-                    f"[SUCCESS] Exported: {get_filename(save_path)}",
+                self.success(
+                    f"Exported: {get_filename(save_path)}",
                     link = save_path
                 )
 
             except Exception as e:
-                self.log(f"[ERROR] Export failed: {str(e)}")
+                self.error(f"Export failed: {str(e)}")
         else:
             folder = QFileDialog.getExistingDirectory(
                 self, 
@@ -190,44 +201,28 @@ class MainWindow(QWidget):
                     with open(output_path, "w", encoding="utf-8") as f:
                         f.write(content)
 
-                    self.log(
-                        f"[SUCCESS] Exported {new_name}",
+                    self.success(
+                        f"Exported {new_name}",
                         link = output_path
                     )
 
                 except Exception as e:
-                    self.log(f"[ERROR] Export failed for {name}: {str(e)}")
+                    self.error(f"Export failed for {name}: {str(e)}")
             
             self.last_export_dir = folder
             self.open_folder_btn.setEnabled(True)
 
-    def clear_logs(self):
-        self.output.clear()
-
-    def log(self, message: str, log_time: bool = True, link: str | None = None) -> None:
-        timestamp = f"[{datetime.now().strftime("%H:%M:%S")}]" if log_time else ""
-
-        if link:
-            log_msg = f"{timestamp} {message} <a href='file:///{link}'>[open]</a>"
-        else:
-            log_msg = f"{timestamp} {message}"
-
-        self.output.append(log_msg)
-        self.output.verticalScrollBar().setValue(
-            self.output.verticalScrollBar().maximum()
-        )
-
-    def on_minify_finished(self, results):
+    def on_minify_finished(self, results) -> None:
         self.last_results = results
 
-        self.log("[INFO] Minification complete")
+        self.info("Minification complete")
 
         self.minify_btn.setEnabled(True)
         self.export_btn.setEnabled(True)
 
-    def open_output_folder(self):
+    def open_output_folder(self) -> None:
         if not self.last_export_dir:
-            self.log("[WARN] No export folder available")
+            self.warn("No export folder available")
             return
         
         try:
@@ -238,17 +233,19 @@ class MainWindow(QWidget):
             else:
                 subprocess.Popen(["xdg-open", self.last_export_dir])
 
-            self.log("[INFO] Opened output folder")
+            self.info("Opened output folder")
 
         except Exception as e:
-            self.log(f"[ERROR] Failed to open folder: {str(e)}")
+            self.error(f"Failed to open folder: {str(e)}")
+
+    # -------- OVERRIDES ---------
 
     @override
-    def dragEnterEvent(self, event: QDragEnterEvent):
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls(): event.acceptProposedAction()
 
     @override
-    def dropEvent(self, event: QDropEvent):
+    def dropEvent(self, event: QDropEvent) -> None:
         files = [url.toLocalFile() for url in event.mimeData().urls()]
 
         if files:
@@ -256,7 +253,61 @@ class MainWindow(QWidget):
 
             self.file_label.setText(f"{len(files)} file(s) selected")
 
-            self.log("[INFO] Files dropped:")
+            self.info("Files dropped:")
             for f in files: self.log(f"  - {get_filename(f)}")
 
             self.minify_btn.setEnabled(True)
+
+    # -------- LOGGING FUNCTIONS ---------
+
+    def clear_logs(self) -> None:
+        self.output.clear()
+
+
+
+    def log(self, message: str, log_time: bool = True, link: str | None = None) -> None:
+
+        timestamp = f"[{datetime.now().strftime("%H:%M:%S")}]" if log_time else ""
+
+        # set log message
+        _log_msg = f"{timestamp} {message} <a href='file:///{link}'>[open]</a>" if link else f"{timestamp} {message}"
+        log_msg = f"<font color={self.log_text_color}>{_log_msg}</font>"
+
+        self.output.append(log_msg)
+        self.output.verticalScrollBar().setValue(
+            self.output.verticalScrollBar().maximum()
+        )
+
+        # reset text colour to default
+        self.log_text_color = "white"
+
+    def error(self, message: str, log_time: bool = True, link: str | None = None) -> None:
+        self.log_text_color = "#F02828"
+        self.log(
+            f"[ERROR] {message}", 
+            log_time = log_time,
+            link = link
+        )
+
+    def success(self, message: str, log_time: bool = True, link: str | None = None) -> None:
+        self.log_text_color = "#0BF00B"
+        self.log(
+            f"[SUCCESS] {message}", 
+            log_time = log_time,
+            link = link
+        )
+
+    def warn(self, message: str, log_time: bool = True, link: str | None = None) -> None:
+        self.log_text_color = "#FF9100"
+        self.log(
+            f"[WARNING] {message}", 
+            log_time = log_time,
+            link = link
+        )
+
+    def info(self, message: str, log_time: bool = True, link: str | None = None) -> None:
+        self.log(
+            f"[INFO] {message}", 
+            log_time = log_time,
+            link = link
+        )
