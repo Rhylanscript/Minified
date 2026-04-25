@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## [1.2.5] - 2026-25-04
+### Added
+- Exports now show links to file in logs
+- Open export folder button opens the folder of the most recent export
+
+### Changed
+- Changed logs widget from `QPlainTextWidget` to `QTextBrowser` for more functionality
+
+### Fixed
+- Error where exports wouldn't load properly
+
 ## [1.2.4] - 2026-23-04
 ### Changed
 - User now has the option to choose filename when exporting singular files.

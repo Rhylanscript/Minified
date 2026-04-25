@@ -1,12 +1,14 @@
 # ui/main_window.py
 
 import os
+import subprocess
+import sys
 
 from datetime import datetime
 from typing import override
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QFileDialog, 
-    QPlainTextEdit, QHBoxLayout, QLabel,
+    QTextBrowser, QHBoxLayout, QLabel,
 )
 
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
@@ -41,15 +43,22 @@ class MainWindow(QWidget):
         self.export_btn = QPushButton("Export")
         self.clear_btn = QPushButton("Clear Logs")
 
+        # open folder button
+        self.open_folder_btn = QPushButton("Open Output Folder")
+        self.open_folder_btn.setEnabled(False)
+
         action_layout.addWidget(self.minify_btn)
         action_layout.addWidget(self.export_btn)
         action_layout.addWidget(self.clear_btn)
+        action_layout.addWidget(self.open_folder_btn)
 
         # --- output log
-        self.output = QPlainTextEdit()
-        self.output.setReadOnly(True)
+        self.output = QTextBrowser()
+        # self.output.setReadOnly(True)
         self.output.setObjectName("logBox")
-        
+        self.output.setOpenExternalLinks(True)
+
+        # log initialisation
         self.log("[INFO] Minified Initialised")
 
         # --- add to main widget
@@ -59,17 +68,23 @@ class MainWindow(QWidget):
 
         self.setLayout(layout)
 
-        self.file_paths = []
-        self.last_results = []
-
         # connect button actions
         self.open_btn.clicked.connect(self.open_file)
         self.minify_btn.clicked.connect(self.run_minify)
         self.export_btn.clicked.connect(self.export_file)
+
         self.clear_btn.clicked.connect(self.clear_logs)
+        self.open_folder_btn.clicked.connect(self.open_output_folder)
 
         self.minify_btn.setEnabled(False)
         self.export_btn.setEnabled(False)
+
+        # --- CLASS VARIABLES
+
+        self.file_paths = []
+        self.last_results = []
+        
+        self.last_export_dir = None
 
     def open_file(self):
         files, _ = QFileDialog.getOpenFileNames(self)
@@ -146,7 +161,13 @@ class MainWindow(QWidget):
                 with open(save_path, "w", encoding="utf-8") as f:
                     f.write(content)
 
-                self.log(f"[SUCCESS] Exported: {get_filename(save_path)}")
+                self.last_export_dir = os.path.dirname(save_path)
+                self.open_folder_btn.setEnabled(True)
+
+                self.log(
+                    f"[SUCCESS] Exported: {get_filename(save_path)}",
+                    link = save_path
+                )
 
             except Exception as e:
                 self.log(f"[ERROR] Export failed: {str(e)}")
@@ -169,20 +190,32 @@ class MainWindow(QWidget):
                     with open(output_path, "w", encoding="utf-8") as f:
                         f.write(content)
 
-                    self.log(f"[SUCCESS] Exported {new_name}")
+                    self.log(
+                        f"[SUCCESS] Exported {new_name}",
+                        link = output_path
+                    )
 
                 except Exception as e:
                     self.log(f"[ERROR] Export failed for {name}: {str(e)}")
+            
+            self.last_export_dir = folder
+            self.open_folder_btn.setEnabled(True)
 
     def clear_logs(self):
         self.output.clear()
 
-    def log(self, message: str, log_time: bool = True) -> None:
+    def log(self, message: str, log_time: bool = True, link: str | None = None) -> None:
+        timestamp = f"[{datetime.now().strftime("%H:%M:%S")}]" if log_time else ""
 
-        log_msg = f"[{datetime.now().strftime("%H:%M:%S")}] {message}" if log_time else f"    {message}"
+        if link:
+            log_msg = f"{timestamp} {message} <a href='file:///{link}'>[open]</a>"
+        else:
+            log_msg = f"{timestamp} {message}"
 
-        self.output.appendPlainText(log_msg)
-        self.output.verticalScrollBar().setValue(self.output.verticalScrollBar().maximum())
+        self.output.append(log_msg)
+        self.output.verticalScrollBar().setValue(
+            self.output.verticalScrollBar().maximum()
+        )
 
     def on_minify_finished(self, results):
         self.last_results = results
@@ -191,6 +224,24 @@ class MainWindow(QWidget):
 
         self.minify_btn.setEnabled(True)
         self.export_btn.setEnabled(True)
+
+    def open_output_folder(self):
+        if not self.last_export_dir:
+            self.log("[WARN] No export folder available")
+            return
+        
+        try:
+            if sys.platform == "win32":
+                os.startfile(self.last_export_dir)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", self.last_export_dir])
+            else:
+                subprocess.Popen(["xdg-open", self.last_export_dir])
+
+            self.log("[INFO] Opened output folder")
+
+        except Exception as e:
+            self.log(f"[ERROR] Failed to open folder: {str(e)}")
 
     @override
     def dragEnterEvent(self, event: QDragEnterEvent):
