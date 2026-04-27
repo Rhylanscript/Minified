@@ -9,10 +9,10 @@ from datetime import datetime
 from typing import override
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QFileDialog, 
-    QTextBrowser, QHBoxLayout, QLabel,
+    QTextBrowser, QHBoxLayout, QLabel, QGraphicsOpacityEffect
 )
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
-from PyQt6.QtCore import QThread
+from PyQt6.QtCore import QThread, QPropertyAnimation, QEasingCurve, QTimer, QPoint
 
 # import locals
 from core.worker import MinifyWorker
@@ -52,20 +52,18 @@ class MainWindow(QWidget):
         self.export_btn = QPushButton("Export")
         self.clear_btn = QPushButton("Clear Logs")
 
-        # open folder button
-        self.open_folder_btn = QPushButton("Open Output Folder")
-        self.open_folder_btn.setEnabled(False)
-
         action_layout.addWidget(self.minify_btn)
         action_layout.addWidget(self.export_btn)
         action_layout.addWidget(self.clear_btn)
-        action_layout.addWidget(self.open_folder_btn)
 
         # --- output log
         self.output = QTextBrowser()
         # self.output.setReadOnly(True)
+
         self.output.setObjectName("logBox")
-        self.output.setOpenExternalLinks(True)
+        self.output.setOpenLinks(False)
+        self.output.setOpenExternalLinks(False)
+        self.output.anchorClicked.connect(self.handle_link_click)
 
         # log initialisation
         self.info("Minified Initialised")
@@ -85,9 +83,7 @@ class MainWindow(QWidget):
         self.open_btn.clicked.connect(self.open_file)
         self.minify_btn.clicked.connect(self.run_minify)
         self.export_btn.clicked.connect(self.export_file)
-
         self.clear_btn.clicked.connect(self.clear_logs)
-        self.open_folder_btn.clicked.connect(self.open_output_folder)
 
         self.minify_btn.setEnabled(False)
         self.export_btn.setEnabled(False)
@@ -173,7 +169,7 @@ class MainWindow(QWidget):
                     f.write(content)
 
                 self.last_export_dir = os.path.dirname(save_path)
-                self.open_folder_btn.setEnabled(True)
+                self.show_export_toast()
 
                 self.success(
                     f"Exported: {get_filename(save_path)}",
@@ -210,7 +206,7 @@ class MainWindow(QWidget):
                     self.error(f"Export failed for {name}: {str(e)}")
             
             self.last_export_dir = folder
-            self.open_folder_btn.setEnabled(True)
+            self.show_export_toast()
 
     def on_minify_finished(self, results) -> None:
         self.last_results = results
@@ -237,6 +233,97 @@ class MainWindow(QWidget):
 
         except Exception as e:
             self.error(f"Failed to open folder: {str(e)}")
+
+    def handle_link_click(self, url):
+        path = url.toLocalFile()
+
+        if not path:
+            path = url.toString().replace("open://", "")
+
+        try:
+            if sys.platform == "win32":
+                subprocess.Popen([f'explorer', '/select,', os.path.normpath(path)])
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", "-R", path])
+            else:
+                subprocess.Popen(["xdg-open", os.path.dirname(path)])
+        
+        except Exception as e:
+            self.error(f"Failed to open file location: {str(e)}")
+
+    def show_export_toast(self):
+        if not self.last_export_dir: return
+
+        if hasattr(self, "toast") and self.toast:
+            try:
+                self.toast.hide()
+                self.toast.deleteLater()
+            except RuntimeError:...
+            self.toast = None
+
+        # make toast
+        self.toast = QLabel("Open Output Folder", self)
+        self.toast.setObjectName("exportToast")
+        
+        self.opacity_effect = QGraphicsOpacityEffect(self.toast)
+        self.toast.setGraphicsEffect(self.opacity_effect)
+        self.opacity_effect.setOpacity(0)
+
+        self.toast.adjustSize()
+
+        # position in bottom right
+        margin = 20
+        x = self.width() - self.toast.width() - margin
+        y = self.height() - self.toast.height() - margin
+        self.toast.move(x, y)
+
+        self.toast.show()
+        self.toast.raise_()
+
+        # click to open folder
+        self.toast.mousePressEvent = lambda e: self.open_output_folder()
+
+        # FADE IN ANIMATION
+        self.fade_in_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.fade_in_anim.setDuration(300)
+        self.fade_in_anim.setStartValue(0)
+        self.fade_in_anim.setEndValue(1)
+        self.fade_in_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.fade_in_anim.start()
+
+        # store timer
+        if hasattr(self, "toast_timer"): self.toast_timer.stop()
+        self.toast_timer = QTimer(self)
+        self.toast_timer.setSingleShot(True)
+
+        # FADE OUT ANIMATION
+        self.toast_timer.timeout.connect(self.fade_out_toast)
+        self.toast_timer.start(2500)
+
+    def fade_out_toast(self):
+
+        if not hasattr(self, "toast") or not self.toast: return
+
+        try:
+            self.fade_out_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
+            self.fade_out_anim.setDuration(500)
+            self.fade_out_anim.setStartValue(1)
+            self.fade_out_anim.setEndValue(0)
+            self.fade_out_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+
+            def cleanup():
+                if self.toast:
+                    self.toast.deleteLater()
+                    self.toast = None
+
+            self.fade_out_anim.finished.connect(cleanup)
+            self.fade_out_anim.start()
+
+        except RuntimeError:
+
+            # widget probably already deleted so just ignore it
+            self.toast = None
+
 
     # -------- OVERRIDES ---------
 
@@ -270,8 +357,14 @@ class MainWindow(QWidget):
         timestamp = f"[{datetime.now().strftime("%H:%M:%S")}]" if log_time else ""
 
         # set log message
-        _log_msg = f"{timestamp} {message} <a href='file:///{link}'>[open]</a>" if link else f"{timestamp} {message}"
-        log_msg = f"<font color={self.log_text_color}>{_log_msg}</font>"
+        if link:
+            log_msg = (
+                f"<font color={self.log_text_color}>"
+                f"{timestamp} {message.replace(get_filename(link), '')}"
+                f"<a href='file:///{os.path.abspath(link).replace("\\","/")}'>{get_filename(link)}</a>"
+                f"</font>"
+            )
+        else: log_msg = f"<font color={self.log_text_color}>{timestamp} {message}</font>"
 
         self.output.append(log_msg)
         self.output.verticalScrollBar().setValue(

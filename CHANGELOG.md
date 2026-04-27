@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [1.2.7] - 2026-26-04
+### Changed
+- Improved the open export folder button system a lot by showing a toast instead of a static button on the GUI
+- Changed the styling of the new toast
+
+### Deleted
+- Old GUI open export folder butten
+
 ## [1.2.6] - 2026-25-04
 ### Added 
 - Coloured text to log message types to improve ui

@@ -70,3 +70,15 @@ QScrollBar::add-page:vertical,
 QScrollBar::sub-page:vertical {
     background: #1e1e1e;
 }
+
+#exportToast {
+    background-color: #2b2b2b;
+    color: white;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid #444;
+}
+
+#exportToast:hover {
+    background-color: #3a3a3a;
+}
