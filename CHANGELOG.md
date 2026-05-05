@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## [1.2.8] - 2026-04-05
+### Added
+- A progress bar that shows the progress of file minification so far
+- A separate file for the toast class so it can be used in more cases
+    - Currently used to open export folder 
+
+### Changed 
+- Minor UI changes
+- HTML minifier now also supports `.htm` files
+
 ## [1.2.7] - 2026-26-04
 ### Changed
 - Improved the open export folder button system a lot by showing a toast instead of a static button on the GUI

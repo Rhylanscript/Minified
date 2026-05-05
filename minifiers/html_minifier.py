@@ -7,7 +7,7 @@ from typing import override
 from minifiers.base import BaseMinifier
 
 class HTMLMinifier(BaseMinifier):
-    file_types = [".html"]
+    file_types = [".html", ".htm"]
 
     @override
     def minify(self, content: str) -> str:

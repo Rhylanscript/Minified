@@ -41,9 +41,7 @@ QTextBrowser {
 }
 
 /* use a monospace font for showing logs */
-QTextBrowser#logBox {
-    font-family: Consolas, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New;
-}
+QTextBrowser#logBox { font-family: Consolas, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New; }
 
 /* labels */
 QLabel { color: #aaa; }
@@ -67,11 +65,9 @@ QScrollBar::sub-line:vertical {
 }
 
 QScrollBar::add-page:vertical,
-QScrollBar::sub-page:vertical {
-    background: #1e1e1e;
-}
+QScrollBar::sub-page:vertical { background: #1e1e1e; }
 
-#exportToast {
+#toast {
     background-color: #2b2b2b;
     color: white;
     padding: 10px 16px;
@@ -79,6 +75,4 @@ QScrollBar::sub-page:vertical {
     border: 1px solid #444;
 }
 
-#exportToast:hover {
-    background-color: #3a3a3a;
-}
+#toast:hover { background-color: #3a3a3a; }

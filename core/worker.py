@@ -15,6 +15,7 @@ class MinifyWorker(QObject):
 
     log = pyqtSignal(str)
     finished = pyqtSignal(list)
+    progress = pyqtSignal(int)
 
     # export_btn = pyqtSignal(bool)
 
@@ -28,7 +29,8 @@ class MinifyWorker(QObject):
         total_original = 0
         total_minified = 0
 
-        for path in self.file_paths:
+        total_paths = len(self.file_paths)
+        for i, path in enumerate(self.file_paths):
             try:
                 original_size = os.path.getsize(path)
 
@@ -59,7 +61,10 @@ class MinifyWorker(QObject):
 
             except Exception as e:
                 self.error.emit(f"{get_filename(path)} : {str(e)}")
-                self.error.emit(f"result : {result}")
+                self.error.emit(f"result : {result}" if result else "No result returned")
+            finally:
+                percent = int((i + 1) / total_paths * 100)
+                self.progress.emit(percent)
 
         # summary
         if total_original > 0:

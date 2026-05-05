@@ -7,9 +7,11 @@ import sys
 
 from datetime import datetime
 from typing import override
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QFileDialog, 
-    QTextBrowser, QHBoxLayout, QLabel, QGraphicsOpacityEffect
+    QTextBrowser, QHBoxLayout, QLabel, QGraphicsOpacityEffect,
+    QProgressBar
 )
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 from PyQt6.QtCore import QThread, QPropertyAnimation, QEasingCurve, QTimer, QPoint
@@ -17,6 +19,7 @@ from PyQt6.QtCore import QThread, QPropertyAnimation, QEasingCurve, QTimer, QPoi
 # import locals
 from core.worker import MinifyWorker
 from utils.util import get_filename
+from ui.toast import Toast
 
 class MainWindow(QWidget):
     def __init__(self) -> None:
@@ -34,9 +37,8 @@ class MainWindow(QWidget):
         self.setWindowTitle("Minified")
         self.resize(800, 500)
 
-        self.setAcceptDrops(True)
-
-        layout = QVBoxLayout()
+        self.setAcceptDrops(True)   # allow dropping of files onto the app
+        layout = QVBoxLayout()      # create overall layout of app
 
         # --- file section
         file_layout = QHBoxLayout()
@@ -56,10 +58,13 @@ class MainWindow(QWidget):
         action_layout.addWidget(self.export_btn)
         action_layout.addWidget(self.clear_btn)
 
+        # --- progress bar
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(True)
+
         # --- output log
         self.output = QTextBrowser()
-        # self.output.setReadOnly(True)
-
         self.output.setObjectName("logBox")
         self.output.setOpenLinks(False)
         self.output.setOpenExternalLinks(False)
@@ -68,16 +73,11 @@ class MainWindow(QWidget):
         # log initialisation
         self.info("Minified Initialised")
 
-        # self.warn("testing warnings")
-        # self.error("testing errors")
-        # self.success("testing success")
-
         # --- add to main widget
         layout.addLayout(file_layout)
         layout.addLayout(action_layout)
+        layout.addWidget(self.progress_bar)
         layout.addWidget(self.output)
-
-        self.setLayout(layout)
 
         # connect button actions
         self.open_btn.clicked.connect(self.open_file)
@@ -88,6 +88,10 @@ class MainWindow(QWidget):
         self.minify_btn.setEnabled(False)
         self.export_btn.setEnabled(False)
 
+        # set layout
+        self.setLayout(layout)
+
+    # --------- BUTTON FUNCTIONS ----------
     def open_file(self) -> None:
         files, _ = QFileDialog.getOpenFileNames(self)
 
@@ -112,9 +116,10 @@ class MainWindow(QWidget):
             self.export_btn.setEnabled(False)
             return
         
-        # disable buttons during processing
+        # disable buttons during processing and reset pgb
         self.minify_btn.setEnabled(False)
         self.export_btn.setEnabled(False)
+        self.update_progress(0)
 
         self.info("Starting minification...")
 
@@ -127,6 +132,7 @@ class MainWindow(QWidget):
         # connect signals
         self.mthread.started.connect(self.worker.run)
         self.worker.finished.connect(self.on_minify_finished)
+        self.worker.progress.connect(self.update_progress)
         
         self.worker.log.connect(self.log)
         self.worker.error.connect(self.error)
@@ -208,13 +214,14 @@ class MainWindow(QWidget):
             self.last_export_dir = folder
             self.show_export_toast()
 
-    def on_minify_finished(self, results) -> None:
+    def on_minify_finished(self, results: list) -> None:
         self.last_results = results
 
         self.info("Minification complete")
 
         self.minify_btn.setEnabled(True)
         self.export_btn.setEnabled(True)
+        self.update_progress(100)
 
     def open_output_folder(self) -> None:
         if not self.last_export_dir:
@@ -234,7 +241,8 @@ class MainWindow(QWidget):
         except Exception as e:
             self.error(f"Failed to open folder: {str(e)}")
 
-    def handle_link_click(self, url):
+    # -------- HELPER FUNCTIONS ------------
+    def handle_link_click(self, url: str) -> None:
         path = url.toLocalFile()
 
         if not path:
@@ -251,88 +259,27 @@ class MainWindow(QWidget):
         except Exception as e:
             self.error(f"Failed to open file location: {str(e)}")
 
-    def show_export_toast(self):
+    def update_progress(self, value: int) -> None:
+        self.progress_bar.setValue(value)
+        self.progress_bar.setFormat(f"{value}%")
+
+    def show_export_toast(self) -> None:
         if not self.last_export_dir: return
+        toast = Toast(self, "Open Output Folder")
 
-        if hasattr(self, "toast") and self.toast:
-            try:
-                self.toast.hide()
-                self.toast.deleteLater()
-            except RuntimeError:...
-            self.toast = None
-
-        # make toast
-        self.toast = QLabel("Open Output Folder", self)
-        self.toast.setObjectName("exportToast")
-        
-        self.opacity_effect = QGraphicsOpacityEffect(self.toast)
-        self.toast.setGraphicsEffect(self.opacity_effect)
-        self.opacity_effect.setOpacity(0)
-
-        self.toast.adjustSize()
-
-        # position in bottom right
-        margin = 20
-        x = self.width() - self.toast.width() - margin
-        y = self.height() - self.toast.height() - margin
-        self.toast.move(x, y)
-
-        self.toast.show()
-        self.toast.raise_()
-
-        # click to open folder
-        self.toast.mousePressEvent = lambda e: self.open_output_folder()
-
-        # FADE IN ANIMATION
-        self.fade_in_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
-        self.fade_in_anim.setDuration(300)
-        self.fade_in_anim.setStartValue(0)
-        self.fade_in_anim.setEndValue(1)
-        self.fade_in_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
-        self.fade_in_anim.start()
-
-        # store timer
-        if hasattr(self, "toast_timer"): self.toast_timer.stop()
-        self.toast_timer = QTimer(self)
-        self.toast_timer.setSingleShot(True)
-
-        # FADE OUT ANIMATION
-        self.toast_timer.timeout.connect(self.fade_out_toast)
-        self.toast_timer.start(2500)
-
-    def fade_out_toast(self):
-
-        if not hasattr(self, "toast") or not self.toast: return
-
-        try:
-            self.fade_out_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
-            self.fade_out_anim.setDuration(500)
-            self.fade_out_anim.setStartValue(1)
-            self.fade_out_anim.setEndValue(0)
-            self.fade_out_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
-
-            def cleanup():
-                if self.toast:
-                    self.toast.deleteLater()
-                    self.toast = None
-
-            self.fade_out_anim.finished.connect(cleanup)
-            self.fade_out_anim.start()
-
-        except RuntimeError:
-
-            # widget probably already deleted so just ignore it
-            self.toast = None
-
+        toast._on_click = self.open_output_folder
+        toast.show_toast(self)
 
     # -------- OVERRIDES ---------
 
     @override
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        if event.mimeData().hasUrls(): event.acceptProposedAction()
+        if event.mimeData() and event.mimeData().hasUrls(): event.acceptProposedAction()
 
     @override
     def dropEvent(self, event: QDropEvent) -> None:
+        if not event.mimeData(): return
+
         files = [url.toLocalFile() for url in event.mimeData().urls()]
 
         if files:
@@ -350,8 +297,6 @@ class MainWindow(QWidget):
     def clear_logs(self) -> None:
         self.output.clear()
 
-
-
     def log(self, message: str, log_time: bool = True, link: str | None = None) -> None:
 
         timestamp = f"[{datetime.now().strftime("%H:%M:%S")}]" if log_time else ""
@@ -367,9 +312,10 @@ class MainWindow(QWidget):
         else: log_msg = f"<font color={self.log_text_color}>{timestamp} {message}</font>"
 
         self.output.append(log_msg)
-        self.output.verticalScrollBar().setValue(
-            self.output.verticalScrollBar().maximum()
-        )
+        if self.output.verticalScrollBar():
+            self.output.verticalScrollBar().setValue(
+                self.output.verticalScrollBar().maximum()
+            )
 
         # reset text colour to default
         self.log_text_color = "white"

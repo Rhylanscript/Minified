@@ -3,10 +3,9 @@
 import os
 import sys
 
-def get_filename(path):
-    return os.path.basename(path)
+def get_filename(path: str) -> str: return os.path.basename(path)
 
-def resource_path(relative_path):
+def resource_path(relative_path: str) -> str:
     try:
         base_path = sys._MEIPASS
 
