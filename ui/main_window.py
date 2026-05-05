@@ -11,10 +11,13 @@ from typing import override
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QFileDialog, 
     QTextBrowser, QHBoxLayout, QLabel, QGraphicsOpacityEffect,
-    QProgressBar
+    QProgressBar, QStackedLayout, QSizePolicy
 )
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
-from PyQt6.QtCore import QThread, QPropertyAnimation, QEasingCurve, QTimer, QPoint
+from PyQt6.QtCore import (
+    QThread, QPropertyAnimation, QEasingCurve, 
+    QTimer, QPoint, Qt
+)
 
 # import locals
 from core.worker import MinifyWorker
@@ -38,30 +41,58 @@ class MainWindow(QWidget):
         self.resize(800, 500)
 
         self.setAcceptDrops(True)   # allow dropping of files onto the app
-        layout = QVBoxLayout()      # create overall layout of app
+
+        main_layout = QHBoxLayout()      # create overall layout of app
+
+        sidebar = QVBoxLayout()
+        content = QVBoxLayout()
 
         # --- file section
-        file_layout = QHBoxLayout()
         self.file_label = QLabel("No file selected")
         self.open_btn = QPushButton("Open File")
 
-        file_layout.addWidget(self.file_label)
-        file_layout.addWidget(self.open_btn)
-
         # --- action buttons
-        action_layout = QHBoxLayout()
         self.minify_btn = QPushButton("Minify")
         self.export_btn = QPushButton("Export")
         self.clear_btn = QPushButton("Clear Logs")
 
-        action_layout.addWidget(self.minify_btn)
-        action_layout.addWidget(self.export_btn)
-        action_layout.addWidget(self.clear_btn)
-
         # --- progress bar
+        prb_height = 24
+
+        self.progress_stack = QStackedLayout()
+        self.progress_stack.setObjectName("progress-stack")
+
+        self.progress_placeholder = QLabel("Minification progress will show here")
+        self.progress_placeholder.setStyleSheet("color:#777;")
+        self.progress_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.progress_placeholder.setProperty("placeholder", True)
+        self.progress_placeholder.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed
+        )
+
+        progress_widget = QWidget()
+
+        progress_layout = QHBoxLayout(progress_widget)
+        progress_layout.setContentsMargins(0, 4, 0, 4)
+        progress_layout.setSpacing(6)
+
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
-        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setTextVisible(False)
+
+        self.progress_label = QLabel("0%")
+        self.progress_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+        self.progress_label.setStyleSheet("margin: 0; padding: 0;")
+        # self.progress_label.setFixedHeight(8)
+        self.progress_label.setMinimumWidth(35)
+
+        progress_layout.addWidget(self.progress_bar)
+        progress_layout.addWidget(self.progress_label)
+
+        self.progress_stack.addWidget(self.progress_placeholder)
+        self.progress_stack.addWidget(progress_widget)
+        self.progress_stack.setCurrentIndex(0)
 
         # --- output log
         self.output = QTextBrowser()
@@ -73,11 +104,21 @@ class MainWindow(QWidget):
         # log initialisation
         self.info("Minified Initialised")
 
-        # --- add to main widget
-        layout.addLayout(file_layout)
-        layout.addLayout(action_layout)
-        layout.addWidget(self.progress_bar)
-        layout.addWidget(self.output)
+        # --- add to layouts
+
+        sidebar.addWidget(self.open_btn)
+        sidebar.addWidget(self.minify_btn)
+        sidebar.addWidget(self.export_btn)
+        sidebar.addWidget(self.clear_btn)
+        sidebar.addStretch()    # pushes buttons to top hopefully
+
+        progress_container = QWidget()
+        progress_container.setLayout(self.progress_stack)
+        progress_container.setFixedHeight(prb_height)
+
+        content.addWidget(self.file_label)
+        content.addWidget(progress_container)
+        content.addWidget(self.output)
 
         # connect button actions
         self.open_btn.clicked.connect(self.open_file)
@@ -88,8 +129,16 @@ class MainWindow(QWidget):
         self.minify_btn.setEnabled(False)
         self.export_btn.setEnabled(False)
 
+        # setup widget objects for panels
+        sidebar_widget = QWidget()
+        sidebar_widget.setObjectName("sidebar")
+        sidebar_widget.setLayout(sidebar)
+
         # set layout
-        self.setLayout(layout)
+        main_layout.addWidget(sidebar_widget, 1)
+        main_layout.addLayout(content, 4)
+
+        self.setLayout(main_layout)
 
     # --------- BUTTON FUNCTIONS ----------
     def open_file(self) -> None:
@@ -106,7 +155,7 @@ class MainWindow(QWidget):
             self.minify_btn.setEnabled(True)
 
         else:
-            self.error(f"Failed to target file")
+            self.warn(f"Failed to locate target file")
             self.file_label.setText("No file selected")
             self.minify_btn.setEnabled(False)
 
@@ -119,6 +168,8 @@ class MainWindow(QWidget):
         # disable buttons during processing and reset pgb
         self.minify_btn.setEnabled(False)
         self.export_btn.setEnabled(False)
+
+        self.progress_stack.setCurrentIndex(1)
         self.update_progress(0)
 
         self.info("Starting minification...")
@@ -221,7 +272,9 @@ class MainWindow(QWidget):
 
         self.minify_btn.setEnabled(True)
         self.export_btn.setEnabled(True)
+
         self.update_progress(100)
+        QTimer.singleShot(800, lambda: self.progress_stack.setCurrentIndex(0))
 
     def open_output_folder(self) -> None:
         if not self.last_export_dir:
@@ -261,7 +314,7 @@ class MainWindow(QWidget):
 
     def update_progress(self, value: int) -> None:
         self.progress_bar.setValue(value)
-        self.progress_bar.setFormat(f"{value}%")
+        self.progress_label.setText(f"{value}%")
 
     def show_export_toast(self) -> None:
         if not self.last_export_dir: return
@@ -296,6 +349,7 @@ class MainWindow(QWidget):
 
     def clear_logs(self) -> None:
         self.output.clear()
+        self.info("Logs cleared successfully")
 
     def log(self, message: str, log_time: bool = True, link: str | None = None) -> None:
 

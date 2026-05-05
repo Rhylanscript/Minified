@@ -12,12 +12,18 @@ QWidget {
     font-size: 13px;
 }
 
+QWidget#sidebar {
+    background-color: #232323;
+    border-right: 3px solid #343434;
+}
+
 /* buttons */
 QPushButton {
     background-color: #2d2d2d;
     border: 1px solid #444;
     padding: 6px;
     border-radius: 6px;
+    min-height: 20px;
 }
 
 QPushButton:disabled { 
@@ -45,6 +51,28 @@ QTextBrowser#logBox { font-family: Consolas, Monaco, Lucida Console, Liberation 
 
 /* labels */
 QLabel { color: #aaa; }
+
+QLabel[placeholder="true"] {
+    color: #777;
+    font-style: italic;
+}
+
+/* Progress bar */
+QProgressBar {
+    border: 1px solid #333;
+    border-radius: 2px;
+    background-color: #111;
+
+    min-height: 6px;
+    max-height: 6px;
+
+    margin-top: 5px;
+}
+
+QProgressBar::chunk {
+    background-color: #00dd77;
+    border-radius: 2px;
+}
 
 /* scrollbar settings */
 QScrollBar:vertical {

@@ -1,6 +1,20 @@
 # CHANGELOG
 
-## [1.2.8] - 2026-04-05
+## [1.3.0] - 2026-06-05
+### Added
+- Split the GUI into a sidebar and content section for organisation
+
+### Changed
+- Complete reorganisation of the gui to keep action buttons in a sidebar for easy access
+- Progress bar shows underneath the current file label and above logs
+- When not actively minifying, progress bar is replaced with a placeholder label
+
+### Fixed
+- Progress bar now doesnt snap other widgets when in use
+- Percentage text for progress bar now is properly placed on the right of the bar, in alignment with the bar
+- Minor fixes to log messages for maximum clarity
+
+## [1.2.8] - 2026-05-05
 ### Added
 - A progress bar that shows the progress of file minification so far
 - A separate file for the toast class so it can be used in more cases
