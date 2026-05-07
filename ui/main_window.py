@@ -19,21 +19,19 @@ import os
 import subprocess
 import sys
 
-from datetime import datetime
 from typing import override
 
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
-from PyQt6.QtCore import QThread, QTimer, Qt
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QPushButton, QFileDialog, 
-    QTextBrowser, QHBoxLayout, QLabel, QCheckBox,
-    QProgressBar, QStackedLayout, QSizePolicy, QApplication
-)
+from PyQt6.QtCore import QThread, QTimer
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QLabel
 
 from core.worker import MinifyWorker
 from utils.util import get_filename
 from utils.style_loader import load_stylesheet
+
 from ui.toast import Toast
+from ui.widgets.log_view import LogView
+from ui.widgets.progress_widget import ProgressWidget
 
 class MainWindow(QWidget):
     """
@@ -71,122 +69,80 @@ class MainWindow(QWidget):
         - Initialises logging system
         """
         super().__init__()
+        self._configure_window()
 
-        # --- CLASS VARIABLES
+        # call init functions
+        self._init_state(initial_theme)
+        self._build_widgets()
+        self._build_layouts()
+        self._connect_signals()
+        self._apply_defaults()
 
-        self.file_paths = []
-        self.last_results = []
-        
-        self.current_theme = initial_theme  # will be set by style loader
-        
-        self.last_export_dir = None
+        # log initialisation
+        self.output.info("Minified Initialised")
 
-        # config window
+        # test log funcs
+        self.output.warn("This is a Warning")
+        self.output.error("This is an Error")
+        self.output.success("This is a Success")
+
+    # --------- INITIALISATION FUNCTIONS ---------
+
+    def _configure_window(self) -> None:
         self.setWindowTitle("Minified")
         self.resize(800, 500)
 
-        self.setAcceptDrops(True)   # allow dropping of files onto the app
+        # allow dropping of files onto the app
+        self.setAcceptDrops(True)
 
-        main_layout = QHBoxLayout()      # create overall layout of app
+    def _init_state(self, theme) -> None:
+        self.file_paths: list[str] = []
+        self.last_results: list[tuple[str, str]] = []
+        self.last_export_dir: str | None = None
 
-        sidebar = QVBoxLayout()
-        content = QVBoxLayout()
+        self.current_theme = theme
 
-        # --- file section
-        self.file_label = QLabel("No file selected")
-        self.open_btn = QPushButton("Open File")
-
+    def _build_widgets(self) -> None:
         # --- action buttons
+        self.open_btn = QPushButton("Open File")
         self.minify_btn = QPushButton("Minify")
         self.export_btn = QPushButton("Export")
         self.clear_btn = QPushButton("Clear Logs")
-
-        # --- progress bar
-        prb_height = 24
-
-        self.progress_stack = QStackedLayout()
-        self.progress_stack.setObjectName("progress-stack")
-
-        self.progress_placeholder = QLabel("Minification progress will show here")
-        self.progress_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.progress_placeholder.setProperty("placeholder", True)
-        self.progress_placeholder.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Fixed
-        )
-
-        progress_widget = QWidget()
-
-        progress_layout = QHBoxLayout(progress_widget)
-        progress_layout.setContentsMargins(0, 4, 0, 4)
-        progress_layout.setSpacing(6)
-
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setValue(0)
-        self.progress_bar.setTextVisible(False)
-
-        self.progress_label = QLabel("0%")
-        self.progress_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-        self.progress_label.setObjectName("progress-label")
-        self.progress_label.setMinimumWidth(35)
-
-        progress_layout.addWidget(self.progress_bar)
-        progress_layout.addWidget(self.progress_label)
-
-        self.progress_stack.addWidget(self.progress_placeholder)
-        self.progress_stack.addWidget(progress_widget)
-        self.progress_stack.setCurrentIndex(0)
-
+        
         # --- theme toggle
         self.theme_toggle = QPushButton("Light Mode" if self.current_theme == "dark" else "Dark Mode")
         self.theme_toggle.setCheckable(True)
         self.theme_toggle.setObjectName("theme-toggle")
         self.theme_toggle.setChecked(self.current_theme == "dark")
+        
+        # --- file label
+        self.file_label = QLabel("No file selected")
+        
+        # --- progress bar
+        self.progress = ProgressWidget()
 
         # --- output log
-        self.output = QTextBrowser()
-        self.output.setObjectName("logBox")
-        self.output.setOpenLinks(False)
-        self.output.setOpenExternalLinks(False)
-        self.output.anchorClicked.connect(self.handle_link_click)
+        self.output = LogView()
 
-        # log initialisation
-        self.info("Minified Initialised")
+    def _build_layouts(self) -> None:
+        # make layouts
+        main_layout = QHBoxLayout()      
+        sidebar = QVBoxLayout()
+        content = QVBoxLayout()
 
-        # test log funcs
-        self.warn("This is a Warning")
-        self.error("This is an Error")
-        self.success("This is a Success")
-
-        # --- add to layouts
+        # add to sidebar
         sidebar.addWidget(self.open_btn)
         sidebar.addWidget(self.minify_btn)
         sidebar.addWidget(self.export_btn)
         sidebar.addWidget(self.clear_btn)
-
-        sidebar.addStretch()    # pushes buttons to top hopefully
-
+        sidebar.addStretch()
         sidebar.addWidget(self.theme_toggle)
 
-        progress_container = QWidget()
-        progress_container.setLayout(self.progress_stack)
-        progress_container.setFixedHeight(prb_height)
-
+        # add to main content
         content.addWidget(self.file_label)
-        content.addWidget(progress_container)
+        content.addWidget(self.progress)
         content.addWidget(self.output)
-
-        # connect button actions
-        self.open_btn.clicked.connect(self.open_file)
-        self.minify_btn.clicked.connect(self.run_minify)
-        self.export_btn.clicked.connect(self.export_file)
-        self.clear_btn.clicked.connect(self.clear_logs)
-
-        self.theme_toggle.clicked.connect(self.on_theme_toggle)
-
-        self.minify_btn.setEnabled(False)
-        self.export_btn.setEnabled(False)
-
+        
         # setup widget objects for panels
         sidebar_widget = QWidget()
         sidebar_widget.setObjectName("sidebar")
@@ -196,7 +152,23 @@ class MainWindow(QWidget):
         main_layout.addWidget(sidebar_widget, 1)
         main_layout.addLayout(content, 4)
 
+        # set layout of application
         self.setLayout(main_layout)
+
+    def _connect_signals(self) -> None:
+        # --- connect button actions
+        self.open_btn.clicked.connect(self.open_file)
+        self.minify_btn.clicked.connect(self.run_minify)
+        self.export_btn.clicked.connect(self.export_file)
+        self.clear_btn.clicked.connect(self.output.clear_logs)
+        self.theme_toggle.clicked.connect(self.on_theme_toggle)
+
+        # connect log link clicks
+        self.output.anchorClicked.connect(self.handle_link_click)
+
+    def _apply_defaults(self) -> None:
+        self.minify_btn.setEnabled(False)
+        self.export_btn.setEnabled(False)
 
     # --------- BUTTON FUNCTIONS ----------
 
@@ -214,14 +186,14 @@ class MainWindow(QWidget):
             names = [get_filename(f) for f in files]
             
             self.file_label.setText(f"{len(files)} file(s) selected")
-            self.info(f"Selected files:")
-            for name in names: self.log(f"  - {name}", log_time = False)
+            self.output.info(f"Selected files:")
+            for name in names: self.output.log(f"  - {name}", log_time = False)
 
             self.minify_btn.setEnabled(True)
 
         else:
             # show warning
-            self.warn(f"No target file selected")
+            self.output.warn(f"No target file selected")
             self.file_label.setText("No file selected")
             self.minify_btn.setEnabled(False)
 
@@ -239,7 +211,7 @@ class MainWindow(QWidget):
         """
 
         if not self.file_paths: 
-            self.warn(f"No target files specified")
+            self.output.warn(f"No target files specified")
             self.export_btn.setEnabled(False)
             return
         
@@ -247,10 +219,10 @@ class MainWindow(QWidget):
         self.minify_btn.setEnabled(False)
         self.export_btn.setEnabled(False)
 
-        self.progress_stack.setCurrentIndex(1)
-        self.update_progress(0)
+        self.progress.show_progress()
+        self.progress.set_progress(0)
 
-        self.info("Starting minification...")
+        self.output.info("Starting minification...")
 
         # create thread + worker
         self.mthread = QThread()
@@ -261,13 +233,13 @@ class MainWindow(QWidget):
         # connect signals
         self.mthread.started.connect(self.worker.run)
         self.worker.finished.connect(self.on_minify_finished)
-        self.worker.progress.connect(self.update_progress)
+        self.worker.progress.connect(self.progress.set_progress)
         
-        self.worker.log.connect(self.log)
-        self.worker.error.connect(self.error)
-        self.worker.warn.connect(self.warn)
-        self.worker.success.connect(self.success)
-        self.worker.info.connect(self.info)
+        self.worker.log.connect(self.output.log)
+        self.worker.error.connect(self.output.error)
+        self.worker.warn.connect(self.output.warn)
+        self.worker.success.connect(self.output.success)
+        self.worker.info.connect(self.output.info)
 
         # cleanup
         self.worker.finished.connect(self.mthread.quit)
@@ -287,8 +259,8 @@ class MainWindow(QWidget):
         error messages in the log.
         """
 
-        if not hasattr(self, "last_results") or not self.last_results:
-            self.warn("Nothing to export")
+        if not self.last_results:
+            self.output.warn("Nothing to export")
             return
         
         # set the default directory
@@ -316,13 +288,13 @@ class MainWindow(QWidget):
                 self.last_export_dir = os.path.dirname(save_path)
                 self.show_export_toast()
 
-                self.success(
+                self.output.success(
                     f"Exported: {get_filename(save_path)}",
                     link = save_path
                 )
 
             except Exception as e:
-                self.error(f"Export failed: {str(e)}")
+                self.output.error(f"Export failed: {str(e)}")
         else:
             folder = QFileDialog.getExistingDirectory(
                 self, 
@@ -342,18 +314,18 @@ class MainWindow(QWidget):
                     with open(output_path, "w", encoding="utf-8") as f:
                         f.write(content)
 
-                    self.success(
+                    self.output.success(
                         f"Exported {new_name}",
                         link = output_path
                     )
 
                 except Exception as e:
-                    self.error(f"Export failed for {name}: {str(e)}")
+                    self.output.error(f"Export failed for {name}: {str(e)}")
             
             self.last_export_dir = folder
             self.show_export_toast()
 
-    def on_minify_finished(self, results: list[str]) -> None:
+    def on_minify_finished(self, results: list[tuple[str, str]]) -> None:
         """
         Handles completion of the minification process.
 
@@ -361,17 +333,17 @@ class MainWindow(QWidget):
         transitions progress UI back into idle state.
 
         Args:
-            results: A list of the minified files
+            results: A list of the minified files in format of `[(path, content), ...]`
         """
         self.last_results = results
 
-        self.info("Minification complete")
+        self.output.info("Minification complete")
 
         self.minify_btn.setEnabled(True)
         self.export_btn.setEnabled(True)
 
-        self.update_progress(100)
-        QTimer.singleShot(800, lambda: self.progress_stack.setCurrentIndex(0))
+        self.progress.set_progress(100)
+        QTimer.singleShot(800, self.progress.show_idle)
 
     def open_output_folder(self) -> None:
         """
@@ -381,7 +353,7 @@ class MainWindow(QWidget):
         depending on operating system.
         """
         if not self.last_export_dir:
-            self.warn("No export folder available")
+            self.output.warn("No export folder available")
             return
         
         try:
@@ -392,10 +364,10 @@ class MainWindow(QWidget):
             else:
                 subprocess.Popen(["xdg-open", self.last_export_dir])
 
-            self.info("Opened output folder")
+            self.output.info("Opened output folder")
 
         except Exception as e:
-            self.error(f"Failed to open folder: {str(e)}")
+            self.output.error(f"Failed to open folder: {str(e)}")
 
     def on_theme_toggle(self):
         """
@@ -440,17 +412,7 @@ class MainWindow(QWidget):
                 subprocess.Popen(["xdg-open", os.path.dirname(path)])
         
         except Exception as e:
-            self.error(f"Failed to open file location: {str(e)}")
-
-    def update_progress(self, value: int) -> None:
-        """
-        Simple helper function to update the progress bar given a value.
-
-        Args:
-            value: The value to set the progress bar to
-        """
-        self.progress_bar.setValue(value)
-        self.progress_label.setText(f"{value}%")
+            self.output.error(f"Failed to open file location: {str(e)}")
 
     def show_export_toast(self) -> None:
         """
@@ -476,16 +438,7 @@ class MainWindow(QWidget):
         """
         from PyQt6.QtWidgets import QApplication
         load_stylesheet(QApplication.instance(), theme)
-        self.info(f"Successfully applied theme '{theme}'")
-
-    def toggle_theme(self) -> None:
-        """Helper method to toggle theme."""
-        self.current_theme = "light" if self.current_theme == "dark" else "dark"
-
-        # prevent flicker
-        self.setUpdatesEnabled(False)
-        self.apply_theme(self.current_theme)
-        self.setUpdatesEnabled(True)
+        self.output.info(f"Successfully applied theme '{theme}'")
 
     # -------- OVERRIDES ---------
 
@@ -524,136 +477,6 @@ class MainWindow(QWidget):
             
             # update UI
             self.file_label.setText(f"{len(files)} file(s) selected")
-            self.info("Files dropped:")
-            for f in files: self.log(f"  - {get_filename(f)}")
+            self.output.info("Files dropped:")
+            for f in files: self.output.log(f"  - {get_filename(f)}")
             self.minify_btn.setEnabled(True)
-
-    # -------- LOGGING FUNCTIONS ---------
-
-    def clear_logs(self) -> None:
-        """Simple method to clear the logs window."""
-        self.output.clear()
-        self.info("Logs cleared successfully")
-
-    def log(
-            self, 
-            message: str, 
-            log_time: bool = True, 
-            link: str | None = None,
-            color: str | None = None
-        ) -> None:
-
-        """
-        Appends a formatted message the the output log.
-
-        Supports:
-        - Timestamps
-        - Clickable file links
-        - Coloured text output
-
-        Args:
-            message: The default message to add to the logs
-            log_time: Flag argument to specify whether to prefix with timestamp
-            link: Optional file path to make text clickable
-            color: Optional HTML color for message styling
-        """
-
-        timestamp = f"[{datetime.now().strftime('%H:%M:%S')}]" if log_time else ""
-        full_message = f"{timestamp} {message}"
-
-        # set log message
-        if link:
-            full_message = (
-                f"{timestamp}"
-                f"{message.replace(get_filename(link), '')}"
-                f"<a href='file:///{os.path.abspath(link).replace('\\', '/')}'>{get_filename(link)}</a>"
-            )
-        if color: full_message = f"<span style='color:{color};'>{full_message}</span>"
-
-        self.output.append(full_message)
-
-        scrollbar = self.output.verticalScrollBar()
-        if scrollbar: scrollbar.setValue(scrollbar.maximum())
-
-    def error(
-            self, 
-            message: str, 
-            log_time: bool = True, 
-            link: str | None = None
-        ) -> None:
-        """
-        Show a red error message in output log.
-
-        Args:
-            message: The message to append to logs
-            log_time: Whether to prefix with timestamp
-            link: Optional file path to make clickable link
-        """
-        self.log(
-            f"[ERROR] {message}", 
-            log_time = log_time,
-            link = link,
-            color = "#F02828"
-        )
-
-    def success(
-            self, 
-            message: str, 
-            log_time: bool = True, 
-            link: str | None = None
-        ) -> None:
-        """
-        Show a green success message in output log.
-
-        Args:
-            message: The message to append to logs
-            log_time: Whether to prefix with timestamp
-            link: Optional file path to make clickable link
-        """
-        self.log(
-            f"[SUCCESS] {message}", 
-            log_time = log_time,
-            link = link,
-            color = "#07DA07"
-        )
-
-    def warn(
-            self, 
-            message: str, 
-            log_time: bool = True, 
-            link: str | None = None
-        ) -> None:
-        """
-        Show a yellow warning message in output log.
-
-        Args:
-            message: The message to append to logs
-            log_time: Whether to prefix with timestamp
-            link: Optional file path to make clickable link
-        """
-        self.log(
-            f"[WARNING] {message}", 
-            log_time = log_time,
-            link = link,
-            color = "#E0840B"
-        )
-
-    def info(
-            self, 
-            message: str, 
-            log_time: bool = True, 
-            link: str | None = None
-        ) -> None:
-        """
-        Show a themed message in output log.
-
-        Args:
-            message: The message to append to logs
-            log_time: Whether to prefix with timestamp
-            link: Optional file path to make clickable link
-        """
-        self.log(
-            f"[INFO] {message}", 
-            log_time = log_time,
-            link = link
-        )

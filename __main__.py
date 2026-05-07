@@ -15,7 +15,7 @@ if __name__ == "__main__":
     from ui.main_window import MainWindow
     from utils.style_loader import load_stylesheet
 
-    DEFAULT_THEME = "light"
+    DEFAULT_THEME = "dark"
 
     def main() -> int:
         """

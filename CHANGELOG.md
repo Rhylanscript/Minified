@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [1.3.3] - 2026-07-05
+### Added
+- The `ui/widgets/` folder to move specialised widget logic out of `MainWindow`
+
+### Changed
+- Refactored the logic for the logs and the progress widget to their own classes, which are then implemented in MainWindow.
+- Moved most initialisation logic in `MainWindow` to separate methods to clean up logic
+
 ## [1.3.2] - 2026-07-05
 ### Added
 - `__init__.py` files for every folder to show docstring when hovered in vscode (useful change ok)
