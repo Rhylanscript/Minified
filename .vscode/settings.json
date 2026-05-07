@@ -1,0 +1,13 @@
+{
+    "python.analysis.extraPaths": [
+        "${workspaceFolder"
+    ],
+
+    "editor.formatOnSave": true,
+
+    "[markdown]": { "editor.formatOnSave": false },
+    
+    "files.exclude": {
+        "**/__pycache__": true
+    }
+}

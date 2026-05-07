@@ -59,11 +59,10 @@ QScrollBar::handle:vertical { background: #555; }
 QScrollBar::add-page:vertical,
 QScrollBar::sub-page:vertical { background: #1e1e1e; }
 
+/* toast styling */
 #toast:hover { background-color: #3a3a3a; }
 #toast {
     background-color: #2b2b2b;
     color: #ddd;
     border: 1px solid #444;
 }
-
-/* toggle switch */

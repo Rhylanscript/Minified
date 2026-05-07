@@ -20,15 +20,6 @@ QPushButton {
     transition: all 0.2s;
 }
 
-/* QPushButton#theme-toggle {
-    border-radius: 12px;
-    padding: 6px 12px;
-}
-
-QPushButton#theme-toggle:checked {
-    background-color: #444;
-} */
-
 /* text area */
 QTextBrowser {
     border: 1px solid;
@@ -41,9 +32,6 @@ QTextBrowser#logBox { font-family: Consolas, Monaco, Lucida Console, Liberation 
 
 /* labels */
 QLabel[placeholder="true"] { font-style: italic; }
-
-/* checkbox */
-
 
 /* Progress bar */
 QProgressBar {
@@ -76,6 +64,7 @@ QScrollBar::sub-line:vertical {
     height: 0px;
 }
 
+/* toast styling */
 #toast {
     padding: 10px 16px;
     border-radius: 8px;

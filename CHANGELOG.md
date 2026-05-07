@@ -1,10 +1,21 @@
 # CHANGELOG
 
+## [1.3.2] - 2026-07-05
+### Added
+- `__init__.py` files for every folder to show docstring when hovered in vscode (useful change ok)
+- Added more configurations in `.vscode/`
+- Better documentation to like EVERY FILE IN THE PROJECT
+    - Every class, function, method and file has docstrings for happy
+
+### Changed
+- Slightly modified entrypoint to use a `main()` function
+
 ## [1.3.1] - 2026-07-05
 ### Added
 - Toggleable theming (now has light mode with an extra button to switch between the two)
 - Added folder `assets/themes/` for theming .qss files
     - Hopefully support for custom themes will be added in future
+- Added `.vscode/` folder for configurations.
 
 ### Changed
 - Refactored `styles.qss` from `assets/` to `assets/styles/`

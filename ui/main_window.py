@@ -1,6 +1,20 @@
 # ui/main_window.py
 
-# imports
+"""
+Main application window for the Minified GUI.
+
+This module defines the primary user interface, including:
+- file selection and drop & drag support
+- asynchronous file minification
+- export functionality for processed files
+- logging system with coloured output
+- theme switching (light/dark mode)
+- progress tracking during processing
+
+The window acts as a central controller which connects the
+GUI to the backend.
+"""
+
 import os
 import subprocess
 import sys
@@ -16,14 +30,46 @@ from PyQt6.QtWidgets import (
     QProgressBar, QStackedLayout, QSizePolicy, QApplication
 )
 
-# import locals
 from core.worker import MinifyWorker
 from utils.util import get_filename
 from utils.style_loader import load_stylesheet
 from ui.toast import Toast
 
 class MainWindow(QWidget):
+    """
+    Main application window for the Minified tool.
+
+    Provides a full graphical user interface for selecting files,
+    running minification tasks, viewing logs and exporting results.
+
+    Key roles:
+    - Managing selected input files
+    - Launching background minification workers on threads
+    - Displaying progress and minification updates
+    - Handling export of processed files
+    - Managing theme switching (light/dark)
+    - Providing user feedback via logs and toasts
+
+    This class acts as the central UI controller of the application.
+    """
     def __init__(self, initial_theme: str = "light") -> None:
+        """
+        Initialisation of the main window and builds the UI.
+
+        Sets up:
+        - Sidebar with action buttons and theme button
+        - Output log viewer
+        - Progress bar system
+        - Drag and drop file support
+
+        Args:
+            initial_theme: Starting UI theme (light or dark)
+
+        Side Effects:
+        - Builds and configures full UI layout
+        - Connects all button signals
+        - Initialises logging system
+        """
         super().__init__()
 
         # --- CLASS VARIABLES
@@ -113,7 +159,6 @@ class MainWindow(QWidget):
         self.success("This is a Success")
 
         # --- add to layouts
-
         sidebar.addWidget(self.open_btn)
         sidebar.addWidget(self.minify_btn)
         sidebar.addWidget(self.export_btn)
@@ -154,7 +199,14 @@ class MainWindow(QWidget):
         self.setLayout(main_layout)
 
     # --------- BUTTON FUNCTIONS ----------
+
     def open_file(self) -> None:
+        """
+        Opens a file selection dialogue and stores selected file paths.
+
+        Updates the UI with selected filenames and enables the minify
+        button if valid files are selected.
+        """
         files, _ = QFileDialog.getOpenFileNames(self)
 
         if files: 
@@ -168,11 +220,24 @@ class MainWindow(QWidget):
             self.minify_btn.setEnabled(True)
 
         else:
-            self.warn(f"Failed to locate target file")
+            # show warning
+            self.warn(f"No target file selected")
             self.file_label.setText("No file selected")
             self.minify_btn.setEnabled(False)
 
     def run_minify(self) -> None:
+        """
+        Starts the asynchronous minification process.
+
+        Creates a QThread and MinifyWorker to process selected files
+        without blocking UI.
+
+        Connects worker signals to UI handlers for:
+        - progress updates
+        - logging output
+        - completion handling
+        """
+
         if not self.file_paths: 
             self.warn(f"No target files specified")
             self.export_btn.setEnabled(False)
@@ -212,6 +277,16 @@ class MainWindow(QWidget):
         self.mthread.start()
 
     def export_file(self) -> None:
+        """
+        Exports minified results to a selected location.
+
+        If a single file was processed, prompts for a save location.
+        If multiple files processed, prompts for a folder.
+
+        Writes minified content to files and displays confirmation or
+        error messages in the log.
+        """
+
         if not hasattr(self, "last_results") or not self.last_results:
             self.warn("Nothing to export")
             return
@@ -278,7 +353,16 @@ class MainWindow(QWidget):
             self.last_export_dir = folder
             self.show_export_toast()
 
-    def on_minify_finished(self, results: list) -> None:
+    def on_minify_finished(self, results: list[str]) -> None:
+        """
+        Handles completion of the minification process.
+
+        Stores results, updates UI, re-enables controls, and 
+        transitions progress UI back into idle state.
+
+        Args:
+            results: A list of the minified files
+        """
         self.last_results = results
 
         self.info("Minification complete")
@@ -290,6 +374,12 @@ class MainWindow(QWidget):
         QTimer.singleShot(800, lambda: self.progress_stack.setCurrentIndex(0))
 
     def open_output_folder(self) -> None:
+        """
+        Method to open the folder that files were just exported to.
+
+        Uses `subprocess` or `os` modules to open file explorer 
+        depending on operating system.
+        """
         if not self.last_export_dir:
             self.warn("No export folder available")
             return
@@ -308,6 +398,11 @@ class MainWindow(QWidget):
             self.error(f"Failed to open folder: {str(e)}")
 
     def on_theme_toggle(self):
+        """
+        Actions to take when the toggle theme button is clicked.
+
+        Inverts current theme of GUI smoothly.
+        """
         is_dark = self.theme_toggle.isChecked()
 
         self.current_theme = "dark" if is_dark else "light"
@@ -318,11 +413,23 @@ class MainWindow(QWidget):
         self.setUpdatesEnabled(True)
 
     # -------- HELPER FUNCTIONS ------------
+
     def handle_link_click(self, url: str) -> None:
+        """
+        Helper method to open a url when a file link is clicked in logs.
+
+        Takes a url and uses the same logic as before to open file 
+        explorer, while handling potential errors.
+
+        Args:
+            url: The url of the folder to open
+
+        I havent actually tried this on other machines but it works on
+        my machine so oh well :)
+        """
         path = url.toLocalFile()
 
-        if not path:
-            path = url.toString().replace("open://", "")
+        if not path: path = url.toString().replace("open://", "")
 
         try:
             if sys.platform == "win32":
@@ -336,10 +443,22 @@ class MainWindow(QWidget):
             self.error(f"Failed to open file location: {str(e)}")
 
     def update_progress(self, value: int) -> None:
+        """
+        Simple helper function to update the progress bar given a value.
+
+        Args:
+            value: The value to set the progress bar to
+        """
         self.progress_bar.setValue(value)
         self.progress_label.setText(f"{value}%")
 
     def show_export_toast(self) -> None:
+        """
+        Method to show export toast when file/files are exported.
+        Uses the `Toast` class to show a little popup.
+
+        When clicked, opens last export directory.
+        """
         if not self.last_export_dir: return
         toast = Toast(self, "Open Output Folder")
 
@@ -347,11 +466,20 @@ class MainWindow(QWidget):
         toast.show_toast(self)
 
     def apply_theme(self, theme: str) -> None:
+        """
+        Applies the selected UI theme to the app.
+
+        Args:
+            theme: Theme name ("light" or "dark")
+
+        Loads and applies the corresponding stylesheet globally
+        """
         from PyQt6.QtWidgets import QApplication
         load_stylesheet(QApplication.instance(), theme)
         self.info(f"Successfully applied theme '{theme}'")
 
     def toggle_theme(self) -> None:
+        """Helper method to toggle theme."""
         self.current_theme = "light" if self.current_theme == "dark" else "dark"
 
         # prevent flicker
@@ -363,27 +491,47 @@ class MainWindow(QWidget):
 
     @override
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        """
+        Function that is called whenever a file is dragged onto the application.
+        
+        Simply accepts the action provided it has a valid file. Overrides from
+        the method of the parent class QWidget.
+
+        Args:
+            event: The drag enter event instance.
+        """
         if event.mimeData() and event.mimeData().hasUrls(): event.acceptProposedAction()
 
     @override
     def dropEvent(self, event: QDropEvent) -> None:
+        """
+        Function that is called whenever a file is dropped onto the application.
+        
+        Sets the currently selected file to the one that was just dropped.
+        Overrides from the method of the parent class QWidget.
+
+        Args:
+            event: The drop event instance.
+        """
         if not event.mimeData(): return
 
+        # store urls in a list
         files = [url.toLocalFile() for url in event.mimeData().urls()]
 
+        # ensure files exist
         if files:
             self.file_paths = files
-
+            
+            # update UI
             self.file_label.setText(f"{len(files)} file(s) selected")
-
             self.info("Files dropped:")
             for f in files: self.log(f"  - {get_filename(f)}")
-
             self.minify_btn.setEnabled(True)
 
     # -------- LOGGING FUNCTIONS ---------
 
     def clear_logs(self) -> None:
+        """Simple method to clear the logs window."""
         self.output.clear()
         self.info("Logs cleared successfully")
 
@@ -395,7 +543,22 @@ class MainWindow(QWidget):
             color: str | None = None
         ) -> None:
 
-        timestamp = f"[{datetime.now().strftime("%H:%M:%S")}]" if log_time else ""
+        """
+        Appends a formatted message the the output log.
+
+        Supports:
+        - Timestamps
+        - Clickable file links
+        - Coloured text output
+
+        Args:
+            message: The default message to add to the logs
+            log_time: Flag argument to specify whether to prefix with timestamp
+            link: Optional file path to make text clickable
+            color: Optional HTML color for message styling
+        """
+
+        timestamp = f"[{datetime.now().strftime('%H:%M:%S')}]" if log_time else ""
         full_message = f"{timestamp} {message}"
 
         # set log message
@@ -418,6 +581,14 @@ class MainWindow(QWidget):
             log_time: bool = True, 
             link: str | None = None
         ) -> None:
+        """
+        Show a red error message in output log.
+
+        Args:
+            message: The message to append to logs
+            log_time: Whether to prefix with timestamp
+            link: Optional file path to make clickable link
+        """
         self.log(
             f"[ERROR] {message}", 
             log_time = log_time,
@@ -431,6 +602,14 @@ class MainWindow(QWidget):
             log_time: bool = True, 
             link: str | None = None
         ) -> None:
+        """
+        Show a green success message in output log.
+
+        Args:
+            message: The message to append to logs
+            log_time: Whether to prefix with timestamp
+            link: Optional file path to make clickable link
+        """
         self.log(
             f"[SUCCESS] {message}", 
             log_time = log_time,
@@ -444,6 +623,14 @@ class MainWindow(QWidget):
             log_time: bool = True, 
             link: str | None = None
         ) -> None:
+        """
+        Show a yellow warning message in output log.
+
+        Args:
+            message: The message to append to logs
+            log_time: Whether to prefix with timestamp
+            link: Optional file path to make clickable link
+        """
         self.log(
             f"[WARNING] {message}", 
             log_time = log_time,
@@ -457,6 +644,14 @@ class MainWindow(QWidget):
             log_time: bool = True, 
             link: str | None = None
         ) -> None:
+        """
+        Show a themed message in output log.
+
+        Args:
+            message: The message to append to logs
+            log_time: Whether to prefix with timestamp
+            link: Optional file path to make clickable link
+        """
         self.log(
             f"[INFO] {message}", 
             log_time = log_time,
