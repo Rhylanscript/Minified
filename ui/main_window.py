@@ -22,16 +22,17 @@ import sys
 from typing import override
 
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
-from PyQt6.QtCore import QThread, QTimer
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QLabel
 
-from core.worker import MinifyWorker
-from utils.util import get_filename
-from utils.style_loader import load_stylesheet
+from core.file_manager import FileManager
+from core.task_manager import TaskManager
+from core.export_manager import ExportManager
 
 from ui.toast import Toast
 from ui.widgets.log_view import LogView
 from ui.widgets.progress_widget import ProgressWidget
+from ui.widgets.theme_toggle import ThemeToggle
 
 class MainWindow(QWidget):
     """
@@ -72,8 +73,8 @@ class MainWindow(QWidget):
         self._configure_window()
 
         # call init functions
-        self._init_state(initial_theme)
-        self._build_widgets()
+        self._init_state()
+        self._build_widgets(initial_theme)
         self._build_layouts()
         self._connect_signals()
         self._apply_defaults()
@@ -82,27 +83,30 @@ class MainWindow(QWidget):
         self.output.info("Minified Initialised")
 
         # test log funcs
-        self.output.warn("This is a Warning")
-        self.output.error("This is an Error")
-        self.output.success("This is a Success")
+        # self.output.warn("This is a Warning")
+        # self.output.error("This is an Error")
+        # self.output.success("This is a Success")
 
     # --------- INITIALISATION FUNCTIONS ---------
 
     def _configure_window(self) -> None:
+        """Configure application window properties."""
         self.setWindowTitle("Minified")
         self.resize(800, 500)
 
         # allow dropping of files onto the app
         self.setAcceptDrops(True)
 
-    def _init_state(self, theme) -> None:
-        self.file_paths: list[str] = []
-        self.last_results: list[tuple[str, str]] = []
-        self.last_export_dir: str | None = None
+    def _init_state(self) -> None:
+        """Initialise class attributes."""
+        self.minified_results: list[tuple[str, str]] = []
 
-        self.current_theme = theme
+        self.file_manager = FileManager()
+        self.task_manager = TaskManager()
+        self.export_manager = ExportManager()
 
-    def _build_widgets(self) -> None:
+    def _build_widgets(self, initial_theme: str) -> None:
+        """Create application widgets."""
         # --- action buttons
         self.open_btn = QPushButton("Open File")
         self.minify_btn = QPushButton("Minify")
@@ -110,10 +114,7 @@ class MainWindow(QWidget):
         self.clear_btn = QPushButton("Clear Logs")
         
         # --- theme toggle
-        self.theme_toggle = QPushButton("Light Mode" if self.current_theme == "dark" else "Dark Mode")
-        self.theme_toggle.setCheckable(True)
-        self.theme_toggle.setObjectName("theme-toggle")
-        self.theme_toggle.setChecked(self.current_theme == "dark")
+        self.theme_toggle = ThemeToggle(initial_theme)
         
         # --- file label
         self.file_label = QLabel("No file selected")
@@ -125,8 +126,10 @@ class MainWindow(QWidget):
         self.output = LogView()
 
     def _build_layouts(self) -> None:
+        """Create and add objects to layouts."""
         # make layouts
-        main_layout = QHBoxLayout()      
+        main_layout = QHBoxLayout()
+
         sidebar = QVBoxLayout()
         content = QVBoxLayout()
 
@@ -156,17 +159,21 @@ class MainWindow(QWidget):
         self.setLayout(main_layout)
 
     def _connect_signals(self) -> None:
+        """Connect signals of helper methods to objects."""
         # --- connect button actions
         self.open_btn.clicked.connect(self.open_file)
         self.minify_btn.clicked.connect(self.run_minify)
         self.export_btn.clicked.connect(self.export_file)
         self.clear_btn.clicked.connect(self.output.clear_logs)
-        self.theme_toggle.clicked.connect(self.on_theme_toggle)
 
         # connect log link clicks
         self.output.anchorClicked.connect(self.handle_link_click)
 
+        # connect file manager update
+        self.file_manager.on_change = self.on_files_changed
+
     def _apply_defaults(self) -> None:
+        """Applies the default states to objects and other stuff."""
         self.minify_btn.setEnabled(False)
         self.export_btn.setEnabled(False)
 
@@ -180,29 +187,14 @@ class MainWindow(QWidget):
         button if valid files are selected.
         """
         files, _ = QFileDialog.getOpenFileNames(self)
-
-        if files: 
-            self.file_paths = files
-            names = [get_filename(f) for f in files]
-            
-            self.file_label.setText(f"{len(files)} file(s) selected")
-            self.output.info(f"Selected files:")
-            for name in names: self.output.log(f"  - {name}", log_time = False)
-
-            self.minify_btn.setEnabled(True)
-
-        else:
-            # show warning
-            self.output.warn(f"No target file selected")
-            self.file_label.setText("No file selected")
-            self.minify_btn.setEnabled(False)
+        self.file_manager.set_files(files)
 
     def run_minify(self) -> None:
         """
         Starts the asynchronous minification process.
 
         Creates a QThread and MinifyWorker to process selected files
-        without blocking UI.
+        without blocking UI through TaskManager.
 
         Connects worker signals to UI handlers for:
         - progress updates
@@ -210,9 +202,13 @@ class MainWindow(QWidget):
         - completion handling
         """
 
-        if not self.file_paths: 
-            self.output.warn(f"No target files specified")
+        if not self.file_manager.has_files(): 
+            self.output.warn("No target files specified")
             self.export_btn.setEnabled(False)
+            return
+        
+        if self.task_manager.is_busy():
+            self.output.warn("Minification already in progress.")
             return
         
         # disable buttons during processing and reset pgb
@@ -225,32 +221,22 @@ class MainWindow(QWidget):
         self.output.info("Starting minification...")
 
         # create thread + worker
-        self.mthread = QThread()
-        self.worker = MinifyWorker(self.file_paths)
-
-        self.worker.moveToThread(self.mthread)
+        worker = self.task_manager.start_minify(self.file_manager.get_files())
 
         # connect signals
-        self.mthread.started.connect(self.worker.run)
-        self.worker.finished.connect(self.on_minify_finished)
-        self.worker.progress.connect(self.progress.set_progress)
-        
-        self.worker.log.connect(self.output.log)
-        self.worker.error.connect(self.output.error)
-        self.worker.warn.connect(self.output.warn)
-        self.worker.success.connect(self.output.success)
-        self.worker.info.connect(self.output.info)
+        worker.finished.connect(self.on_minify_finished)
+        worker.progress.connect(self.progress.set_progress)
 
-        # cleanup
-        self.worker.finished.connect(self.mthread.quit)
-        self.worker.finished.connect(self.worker.deleteLater)
-        self.mthread.finished.connect(self.mthread.deleteLater)
-
-        self.mthread.start()
+        worker.log.connect(self.output.log)
+        worker.error.connect(self.output.error)
+        worker.warn.connect(self.output.warn)
+        worker.success.connect(self.output.success)
+        worker.info.connect(self.output.info)
 
     def export_file(self) -> None:
         """
-        Exports minified results to a selected location.
+        Exports minified results to a selected location using 
+        ExportManager.
 
         If a single file was processed, prompts for a save location.
         If multiple files processed, prompts for a folder.
@@ -258,72 +244,18 @@ class MainWindow(QWidget):
         Writes minified content to files and displays confirmation or
         error messages in the log.
         """
-
-        if not self.last_results:
+        if not self.minified_results:
             self.output.warn("Nothing to export")
             return
         
-        # set the default directory
-        default_dir = os.path.join(os.getcwd(), "generated")
-        os.makedirs(default_dir, exist_ok = True)
+        try:
+            export_dir = self.export_manager.export_files(self, self.minified_results, self.output)
+            if not export_dir: return
 
-        if len(self.last_results) == 1:
-            path, content = self.last_results[0]
-            name = get_filename(path)
-            base, ext = os.path.splitext(name)
-            default_name = f"{base}.min{ext}"
-
-            save_path, _ = QFileDialog.getSaveFileName(
-                self,
-                "Save Minified File",
-                os.path.join(default_dir, default_name)
-            )
-
-            if not save_path: return
-
-            try:
-                with open(save_path, "w", encoding="utf-8") as f:
-                    f.write(content)
-
-                self.last_export_dir = os.path.dirname(save_path)
-                self.show_export_toast()
-
-                self.output.success(
-                    f"Exported: {get_filename(save_path)}",
-                    link = save_path
-                )
-
-            except Exception as e:
-                self.output.error(f"Export failed: {str(e)}")
-        else:
-            folder = QFileDialog.getExistingDirectory(
-                self, 
-                "Select Output Folder",
-                default_dir
-            )
-            if not folder: return
-
-            for path, content in self.last_results:
-                try:
-                    name = os.path.basename(path)
-                    base, ext = os.path.splitext(name)
-                    new_name = f"{base}.min{ext}"
-
-                    output_path = os.path.join(folder, new_name)
-
-                    with open(output_path, "w", encoding="utf-8") as f:
-                        f.write(content)
-
-                    self.output.success(
-                        f"Exported {new_name}",
-                        link = output_path
-                    )
-
-                except Exception as e:
-                    self.output.error(f"Export failed for {name}: {str(e)}")
-            
-            self.last_export_dir = folder
             self.show_export_toast()
+
+        except Exception as e:
+            self.output.error(f"Export failed: {str(e)}")
 
     def on_minify_finished(self, results: list[tuple[str, str]]) -> None:
         """
@@ -335,7 +267,7 @@ class MainWindow(QWidget):
         Args:
             results: A list of the minified files in format of `[(path, content), ...]`
         """
-        self.last_results = results
+        self.minified_results = results
 
         self.output.info("Minification complete")
 
@@ -352,39 +284,46 @@ class MainWindow(QWidget):
         Uses `subprocess` or `os` modules to open file explorer 
         depending on operating system.
         """
-        if not self.last_export_dir:
+        if not self.export_manager.last_export_dir:
             self.output.warn("No export folder available")
             return
         
         try:
             if sys.platform == "win32":
-                os.startfile(self.last_export_dir)
+                os.startfile(self.export_manager.last_export_dir)
             elif sys.platform == "darwin":
-                subprocess.Popen(["open", self.last_export_dir])
+                subprocess.Popen(["open", self.export_manager.last_export_dir])
             else:
-                subprocess.Popen(["xdg-open", self.last_export_dir])
+                subprocess.Popen(["xdg-open", self.export_manager.last_export_dir])
 
             self.output.info("Opened output folder")
 
         except Exception as e:
             self.output.error(f"Failed to open folder: {str(e)}")
 
-    def on_theme_toggle(self):
-        """
-        Actions to take when the toggle theme button is clicked.
-
-        Inverts current theme of GUI smoothly.
-        """
-        is_dark = self.theme_toggle.isChecked()
-
-        self.current_theme = "dark" if is_dark else "light"
-        self.theme_toggle.setText("Light Mode" if is_dark else "Dark Mode")
-
-        self.setUpdatesEnabled(False)
-        self.apply_theme(self.current_theme)
-        self.setUpdatesEnabled(True)
-
     # -------- HELPER FUNCTIONS ------------
+
+    def on_files_changed(self, files: list[str]) -> None:
+        """
+        Helper method called when files in filemanager are changed.
+
+        Updates label and logs changes to output.
+
+        Args:
+            files: A list of the files being added
+        """
+        self.file_label.setText(f"{len(files)} file(s) selected")
+
+        if files:
+            self.output.info("Files selected:")
+            for name in self.file_manager.get_names():
+                self.output.log(f"  - {name}", log_time=False)
+
+            self.minify_btn.setEnabled(True)
+        else:
+            self.output.warn("No target files selected")
+            self.file_label.setText("No files selected")
+            self.minify_btn.setEnabled(False)
 
     def handle_link_click(self, url: str) -> None:
         """
@@ -421,24 +360,11 @@ class MainWindow(QWidget):
 
         When clicked, opens last export directory.
         """
-        if not self.last_export_dir: return
+        if not self.export_manager.last_export_dir: return
         toast = Toast(self, "Open Output Folder")
 
         toast._on_click = self.open_output_folder
         toast.show_toast(self)
-
-    def apply_theme(self, theme: str) -> None:
-        """
-        Applies the selected UI theme to the app.
-
-        Args:
-            theme: Theme name ("light" or "dark")
-
-        Loads and applies the corresponding stylesheet globally
-        """
-        from PyQt6.QtWidgets import QApplication
-        load_stylesheet(QApplication.instance(), theme)
-        self.output.info(f"Successfully applied theme '{theme}'")
 
     # -------- OVERRIDES ---------
 
@@ -468,15 +394,6 @@ class MainWindow(QWidget):
         """
         if not event.mimeData(): return
 
-        # store urls in a list
+        # store urls in a list and update files
         files = [url.toLocalFile() for url in event.mimeData().urls()]
-
-        # ensure files exist
-        if files:
-            self.file_paths = files
-            
-            # update UI
-            self.file_label.setText(f"{len(files)} file(s) selected")
-            self.output.info("Files dropped:")
-            for f in files: self.output.log(f"  - {get_filename(f)}")
-            self.minify_btn.setEnabled(True)
+        self.file_manager.set_files(files)

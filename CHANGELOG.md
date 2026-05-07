@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## [1.3.4] - 2026-07-05
+### Added
+- Managers to handle backend tasks in `MainWindow`
+- `ThemeToggle` custom widget to track theming
+
+### Changed
+- Most minification / export / file management logic is done via managers in `core/` rather than in `MainWindow` now.
+- Moved theme control to a custom widget `ThemeToggle` to increase simplicity in `MainWindow`
+
+### Deleted
+- Unecessary old methods from `MainWindow`
+
 ## [1.3.3] - 2026-07-05
 ### Added
 - The `ui/widgets/` folder to move specialised widget logic out of `MainWindow`
