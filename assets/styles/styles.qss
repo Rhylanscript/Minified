@@ -6,42 +6,32 @@
 
 /* general */
 QWidget {
-    background-color: #1e1e1e;
-    color: #ddd;
     font-family: Segoe UI;
     font-size: 13px;
 }
 
-QWidget#sidebar {
-    background-color: #232323;
-    border-right: 3px solid #343434;
-}
-
 /* buttons */
 QPushButton {
-    background-color: #2d2d2d;
-    border: 1px solid #444;
+    border: 1px solid;
     padding: 6px;
     border-radius: 6px;
     min-height: 20px;
+
+    transition: all 0.2s;
 }
 
-QPushButton:disabled { 
-    color: #5a5a5a;
-    background-color: #2a2a2a;
-}
-QPushButton:enabled { 
-    color: #ddd;
-    background-color: #2d2d2d;
+/* QPushButton#theme-toggle {
+    border-radius: 12px;
+    padding: 6px 12px;
 }
 
-QPushButton:hover { background-color: #3a3a3a; }
-QPushButton:pressed { background-color: #555; }
+QPushButton#theme-toggle:checked {
+    background-color: #444;
+} */
 
 /* text area */
 QTextBrowser {
-    background-color: #111;
-    border: 1px solid #444;
+    border: 1px solid;
     padding: 5px;
     border-radius: 6px;
 }
@@ -50,18 +40,15 @@ QTextBrowser {
 QTextBrowser#logBox { font-family: Consolas, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New; }
 
 /* labels */
-QLabel { color: #aaa; }
+QLabel[placeholder="true"] { font-style: italic; }
 
-QLabel[placeholder="true"] {
-    color: #777;
-    font-style: italic;
-}
+/* checkbox */
+
 
 /* Progress bar */
 QProgressBar {
-    border: 1px solid #333;
+    border: 1px solid;
     border-radius: 2px;
-    background-color: #111;
 
     min-height: 6px;
     max-height: 6px;
@@ -70,18 +57,15 @@ QProgressBar {
 }
 
 QProgressBar::chunk {
-    background-color: #00dd77;
     border-radius: 2px;
 }
 
 /* scrollbar settings */
 QScrollBar:vertical {
-    background: #1e1e1e;
     width: 8px;
     margin: 0px;
 }
 QScrollBar::handle:vertical {
-    background: #555;
     border-radius: 4px;
     min-height: 20px;
 }
@@ -92,15 +76,8 @@ QScrollBar::sub-line:vertical {
     height: 0px;
 }
 
-QScrollBar::add-page:vertical,
-QScrollBar::sub-page:vertical { background: #1e1e1e; }
-
 #toast {
-    background-color: #2b2b2b;
-    color: white;
     padding: 10px 16px;
     border-radius: 8px;
-    border: 1px solid #444;
+    border: 1px solid;
 }
-
-#toast:hover { background-color: #3a3a3a; }

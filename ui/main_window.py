@@ -8,24 +8,22 @@ import sys
 from datetime import datetime
 from typing import override
 
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent
+from PyQt6.QtCore import QThread, QTimer, Qt
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QFileDialog, 
-    QTextBrowser, QHBoxLayout, QLabel, QGraphicsOpacityEffect,
-    QProgressBar, QStackedLayout, QSizePolicy
-)
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent
-from PyQt6.QtCore import (
-    QThread, QPropertyAnimation, QEasingCurve, 
-    QTimer, QPoint, Qt
+    QTextBrowser, QHBoxLayout, QLabel, QCheckBox,
+    QProgressBar, QStackedLayout, QSizePolicy, QApplication
 )
 
 # import locals
 from core.worker import MinifyWorker
 from utils.util import get_filename
+from utils.style_loader import load_stylesheet
 from ui.toast import Toast
 
 class MainWindow(QWidget):
-    def __init__(self) -> None:
+    def __init__(self, initial_theme: str = "light") -> None:
         super().__init__()
 
         # --- CLASS VARIABLES
@@ -33,8 +31,9 @@ class MainWindow(QWidget):
         self.file_paths = []
         self.last_results = []
         
+        self.current_theme = initial_theme  # will be set by style loader
+        
         self.last_export_dir = None
-        self.log_text_color = "white"
 
         # config window
         self.setWindowTitle("Minified")
@@ -63,7 +62,6 @@ class MainWindow(QWidget):
         self.progress_stack.setObjectName("progress-stack")
 
         self.progress_placeholder = QLabel("Minification progress will show here")
-        self.progress_placeholder.setStyleSheet("color:#777;")
         self.progress_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.progress_placeholder.setProperty("placeholder", True)
         self.progress_placeholder.setSizePolicy(
@@ -83,8 +81,7 @@ class MainWindow(QWidget):
 
         self.progress_label = QLabel("0%")
         self.progress_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-        self.progress_label.setStyleSheet("margin: 0; padding: 0;")
-        # self.progress_label.setFixedHeight(8)
+        self.progress_label.setObjectName("progress-label")
         self.progress_label.setMinimumWidth(35)
 
         progress_layout.addWidget(self.progress_bar)
@@ -93,6 +90,12 @@ class MainWindow(QWidget):
         self.progress_stack.addWidget(self.progress_placeholder)
         self.progress_stack.addWidget(progress_widget)
         self.progress_stack.setCurrentIndex(0)
+
+        # --- theme toggle
+        self.theme_toggle = QPushButton("Light Mode" if self.current_theme == "dark" else "Dark Mode")
+        self.theme_toggle.setCheckable(True)
+        self.theme_toggle.setObjectName("theme-toggle")
+        self.theme_toggle.setChecked(self.current_theme == "dark")
 
         # --- output log
         self.output = QTextBrowser()
@@ -104,13 +107,21 @@ class MainWindow(QWidget):
         # log initialisation
         self.info("Minified Initialised")
 
+        # test log funcs
+        self.warn("This is a Warning")
+        self.error("This is an Error")
+        self.success("This is a Success")
+
         # --- add to layouts
 
         sidebar.addWidget(self.open_btn)
         sidebar.addWidget(self.minify_btn)
         sidebar.addWidget(self.export_btn)
         sidebar.addWidget(self.clear_btn)
+
         sidebar.addStretch()    # pushes buttons to top hopefully
+
+        sidebar.addWidget(self.theme_toggle)
 
         progress_container = QWidget()
         progress_container.setLayout(self.progress_stack)
@@ -125,6 +136,8 @@ class MainWindow(QWidget):
         self.minify_btn.clicked.connect(self.run_minify)
         self.export_btn.clicked.connect(self.export_file)
         self.clear_btn.clicked.connect(self.clear_logs)
+
+        self.theme_toggle.clicked.connect(self.on_theme_toggle)
 
         self.minify_btn.setEnabled(False)
         self.export_btn.setEnabled(False)
@@ -294,6 +307,16 @@ class MainWindow(QWidget):
         except Exception as e:
             self.error(f"Failed to open folder: {str(e)}")
 
+    def on_theme_toggle(self):
+        is_dark = self.theme_toggle.isChecked()
+
+        self.current_theme = "dark" if is_dark else "light"
+        self.theme_toggle.setText("Light Mode" if is_dark else "Dark Mode")
+
+        self.setUpdatesEnabled(False)
+        self.apply_theme(self.current_theme)
+        self.setUpdatesEnabled(True)
+
     # -------- HELPER FUNCTIONS ------------
     def handle_link_click(self, url: str) -> None:
         path = url.toLocalFile()
@@ -323,6 +346,19 @@ class MainWindow(QWidget):
         toast._on_click = self.open_output_folder
         toast.show_toast(self)
 
+    def apply_theme(self, theme: str) -> None:
+        from PyQt6.QtWidgets import QApplication
+        load_stylesheet(QApplication.instance(), theme)
+        self.info(f"Successfully applied theme '{theme}'")
+
+    def toggle_theme(self) -> None:
+        self.current_theme = "light" if self.current_theme == "dark" else "dark"
+
+        # prevent flicker
+        self.setUpdatesEnabled(False)
+        self.apply_theme(self.current_theme)
+        self.setUpdatesEnabled(True)
+
     # -------- OVERRIDES ---------
 
     @override
@@ -351,54 +387,76 @@ class MainWindow(QWidget):
         self.output.clear()
         self.info("Logs cleared successfully")
 
-    def log(self, message: str, log_time: bool = True, link: str | None = None) -> None:
+    def log(
+            self, 
+            message: str, 
+            log_time: bool = True, 
+            link: str | None = None,
+            color: str | None = None
+        ) -> None:
 
         timestamp = f"[{datetime.now().strftime("%H:%M:%S")}]" if log_time else ""
+        full_message = f"{timestamp} {message}"
 
         # set log message
         if link:
-            log_msg = (
-                f"<font color={self.log_text_color}>"
-                f"{timestamp} {message.replace(get_filename(link), '')}"
-                f"<a href='file:///{os.path.abspath(link).replace("\\","/")}'>{get_filename(link)}</a>"
-                f"</font>"
+            full_message = (
+                f"{timestamp}"
+                f"{message.replace(get_filename(link), '')}"
+                f"<a href='file:///{os.path.abspath(link).replace('\\', '/')}'>{get_filename(link)}</a>"
             )
-        else: log_msg = f"<font color={self.log_text_color}>{timestamp} {message}</font>"
+        if color: full_message = f"<span style='color:{color};'>{full_message}</span>"
 
-        self.output.append(log_msg)
-        if self.output.verticalScrollBar():
-            self.output.verticalScrollBar().setValue(
-                self.output.verticalScrollBar().maximum()
-            )
+        self.output.append(full_message)
 
-        # reset text colour to default
-        self.log_text_color = "white"
+        scrollbar = self.output.verticalScrollBar()
+        if scrollbar: scrollbar.setValue(scrollbar.maximum())
 
-    def error(self, message: str, log_time: bool = True, link: str | None = None) -> None:
-        self.log_text_color = "#F02828"
+    def error(
+            self, 
+            message: str, 
+            log_time: bool = True, 
+            link: str | None = None
+        ) -> None:
         self.log(
             f"[ERROR] {message}", 
             log_time = log_time,
-            link = link
+            link = link,
+            color = "#F02828"
         )
 
-    def success(self, message: str, log_time: bool = True, link: str | None = None) -> None:
-        self.log_text_color = "#0BF00B"
+    def success(
+            self, 
+            message: str, 
+            log_time: bool = True, 
+            link: str | None = None
+        ) -> None:
         self.log(
             f"[SUCCESS] {message}", 
             log_time = log_time,
-            link = link
+            link = link,
+            color = "#07DA07"
         )
 
-    def warn(self, message: str, log_time: bool = True, link: str | None = None) -> None:
-        self.log_text_color = "#FF9100"
+    def warn(
+            self, 
+            message: str, 
+            log_time: bool = True, 
+            link: str | None = None
+        ) -> None:
         self.log(
             f"[WARNING] {message}", 
             log_time = log_time,
-            link = link
+            link = link,
+            color = "#E0840B"
         )
 
-    def info(self, message: str, log_time: bool = True, link: str | None = None) -> None:
+    def info(
+            self, 
+            message: str, 
+            log_time: bool = True, 
+            link: str | None = None
+        ) -> None:
         self.log(
             f"[INFO] {message}", 
             log_time = log_time,

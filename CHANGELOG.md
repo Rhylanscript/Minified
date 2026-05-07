@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## [1.3.1] - 2026-07-05
+### Added
+- Toggleable theming (now has light mode with an extra button to switch between the two)
+- Added folder `assets/themes/` for theming .qss files
+    - Hopefully support for custom themes will be added in future
+
+### Changed
+- Refactored `styles.qss` from `assets/` to `assets/styles/`
+- Changed style loader to support multiple .qss files to allow for theming
+
+### Fixed
+- Issues with log text colours not formatting properly
+
 ## [1.3.0] - 2026-06-05
 ### Added
 - Split the GUI into a sidebar and content section for organisation
@@ -58,24 +71,20 @@
 ### Fixed
 - Clicking export now opens to `generated/` by default
     - Maybe change to a common folder like `%localappdata%/` or `Downloads/` in future?
-<br>
 
 ## [1.2.3] - 2026-23-04
 ### Added 
 - Logs now show the time at which they were sent
 - Modified default window size
-<br>
 
 ## [1.2.2] - 2026-22-04
 ### Changed
 - Moved minification function in `ui/main_window.py` to `core/worker.py`
 - Minification function now runs on a Thread in `ui/main_window.py` as to not freeze window while active
-<br>
 
 ## [1.2.1] - 2026-22-04
 ### Added
 - File size overview (original size vs minified size & reduction %)
-<br>
 
 ## [1.2.0] - 2026-22-04
 ### Added 
@@ -91,7 +100,6 @@
 ### Fixed
 - Scroll bar design in UI (previously was unformatted and looked ugly)
 - Issues when displaying selected file extension and exporting
-<br>
 
 ## [1.1.0] - 2026-22-04
 ### Added 
@@ -104,7 +112,6 @@
 - MAJOR updates to the UI, looks much cleaner and more modern now
 - Used `assets/styles.qss` to set the styling of the application
 - Only logs first 100 characters of minified file to maintain cleanliness in logs
-<br>
 
 ## [1.0.0] - 2026-22-04
 ### Added
@@ -115,7 +122,6 @@
 - Entrypoint changed from command line to running `__main__.py` directly, and using the application
 ### Deleted
 - CLI entrypoint and args
-<br>
 
 ## [BETA] - 2026-22-04
 Entrypoint through CLI : `__main__.py`

@@ -7,4 +7,6 @@ minifiers/__pycache__/
 ui/__pycache__/
 utils/__pycache__/
 
+assets/styles/old-styles
+
 # should i ignore pyinstaller idk
