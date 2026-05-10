@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [1.3.5] - 2026-11-05
+### Changed
+- Moved all logic regarding the sidebar from `main_window.py` to `sidebar.py`
+
 ## [1.3.4] - 2026-07-05
 ### Added
 - Managers to handle backend tasks in `MainWindow`

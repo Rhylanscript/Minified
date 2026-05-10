@@ -33,6 +33,7 @@ from ui.toast import Toast
 from ui.widgets.log_view import LogView
 from ui.widgets.progress_widget import ProgressWidget
 from ui.widgets.theme_toggle import ThemeToggle
+from ui.widgets.sidebar import Sidebar
 
 class MainWindow(QWidget):
     """
@@ -107,14 +108,8 @@ class MainWindow(QWidget):
 
     def _build_widgets(self, initial_theme: str) -> None:
         """Create application widgets."""
-        # --- action buttons
-        self.open_btn = QPushButton("Open File")
-        self.minify_btn = QPushButton("Minify")
-        self.export_btn = QPushButton("Export")
-        self.clear_btn = QPushButton("Clear Logs")
-        
-        # --- theme toggle
-        self.theme_toggle = ThemeToggle(initial_theme)
+        # --- create sidebar via subclass
+        self.sidebar = Sidebar(initial_theme=initial_theme)
         
         # --- file label
         self.file_label = QLabel("No file selected")
@@ -129,42 +124,26 @@ class MainWindow(QWidget):
         """Create and add objects to layouts."""
         # make layouts
         main_layout = QHBoxLayout()
-
-        sidebar = QVBoxLayout()
         content = QVBoxLayout()
-
-        # add to sidebar
-        sidebar.addWidget(self.open_btn)
-        sidebar.addWidget(self.minify_btn)
-        sidebar.addWidget(self.export_btn)
-        sidebar.addWidget(self.clear_btn)
-        sidebar.addStretch()
-        sidebar.addWidget(self.theme_toggle)
 
         # add to main content
         content.addWidget(self.file_label)
         content.addWidget(self.progress)
         content.addWidget(self.output)
-        
-        # setup widget objects for panels
-        sidebar_widget = QWidget()
-        sidebar_widget.setObjectName("sidebar")
-        sidebar_widget.setLayout(sidebar)
 
         # set layout
-        main_layout.addWidget(sidebar_widget, 1)
+        main_layout.addWidget(self.sidebar, 1)
         main_layout.addLayout(content, 4)
-
-        # set layout of application
+        
         self.setLayout(main_layout)
 
     def _connect_signals(self) -> None:
         """Connect signals of helper methods to objects."""
         # --- connect button actions
-        self.open_btn.clicked.connect(self.open_file)
-        self.minify_btn.clicked.connect(self.run_minify)
-        self.export_btn.clicked.connect(self.export_file)
-        self.clear_btn.clicked.connect(self.output.clear_logs)
+        self.sidebar.open_btn.clicked.connect(self.open_file)
+        self.sidebar.minify_btn.clicked.connect(self.run_minify)
+        self.sidebar.export_btn.clicked.connect(self.export_file)
+        self.sidebar.clear_btn.clicked.connect(self.output.clear_logs)
 
         # connect log link clicks
         self.output.anchorClicked.connect(self.handle_link_click)
@@ -174,8 +153,8 @@ class MainWindow(QWidget):
 
     def _apply_defaults(self) -> None:
         """Applies the default states to objects and other stuff."""
-        self.minify_btn.setEnabled(False)
-        self.export_btn.setEnabled(False)
+        self.sidebar.minify_btn.setEnabled(False)
+        self.sidebar.export_btn.setEnabled(False)
 
     # --------- BUTTON FUNCTIONS ----------
 
@@ -204,7 +183,7 @@ class MainWindow(QWidget):
 
         if not self.file_manager.has_files(): 
             self.output.warn("No target files specified")
-            self.export_btn.setEnabled(False)
+            self.sidebar.export_btn.setEnabled(False)
             return
         
         if self.task_manager.is_busy():
@@ -212,8 +191,8 @@ class MainWindow(QWidget):
             return
         
         # disable buttons during processing and reset pgb
-        self.minify_btn.setEnabled(False)
-        self.export_btn.setEnabled(False)
+        self.sidebar.minify_btn.setEnabled(False)
+        self.sidebar.export_btn.setEnabled(False)
 
         self.progress.show_progress()
         self.progress.set_progress(0)
@@ -271,8 +250,8 @@ class MainWindow(QWidget):
 
         self.output.info("Minification complete")
 
-        self.minify_btn.setEnabled(True)
-        self.export_btn.setEnabled(True)
+        self.sidebar.minify_btn.setEnabled(True)
+        self.sidebar.export_btn.setEnabled(True)
 
         self.progress.set_progress(100)
         QTimer.singleShot(800, self.progress.show_idle)
@@ -319,11 +298,11 @@ class MainWindow(QWidget):
             for name in self.file_manager.get_names():
                 self.output.log(f"  - {name}", log_time=False)
 
-            self.minify_btn.setEnabled(True)
+            self.sidebar.minify_btn.setEnabled(True)
         else:
             self.output.warn("No target files selected")
             self.file_label.setText("No files selected")
-            self.minify_btn.setEnabled(False)
+            self.sidebar.minify_btn.setEnabled(False)
 
     def handle_link_click(self, url: str) -> None:
         """
