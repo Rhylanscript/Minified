@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## [1.4.1] - 2026-11-05
+### Fixed
+- Cleaned up `requirements.txt`
+- Added runtime warning if esbuild isn't installed
+
 ## [1.4.0] - 2026-11-05
 ### Added
 - Multiple minifiers for new filetypes including:

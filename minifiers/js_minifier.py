@@ -126,4 +126,5 @@ class JSMinifier(BaseMinifier):
             )
             return True
         except (FileNotFoundError, subprocess.CalledProcessError):
+            print("[WARNING] esbuild missing. Install with: npm install -g esbuild")
             return False
