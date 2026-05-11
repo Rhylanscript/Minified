@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [1.3.6] - 2026-11-05
+### Fixed
+- Application remembers theming of last session via `QSettings`
+
 ## [1.3.5] - 2026-11-05
 ### Changed
 - Moved all logic regarding the sidebar from `main_window.py` to `sidebar.py`

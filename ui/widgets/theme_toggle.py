@@ -7,7 +7,7 @@ Has the `ThemeToggle` class which controls logic around themes
 and switching them throughout runtime.
 """
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, QSettings
 from PyQt6.QtWidgets import QPushButton, QApplication
 
 from utils.style_loader import load_stylesheet
@@ -44,6 +44,10 @@ class ThemeToggle(QPushButton):
         self.current_theme = "dark" if is_dark else "light"
 
         self._update_text()
+
+        # save theme
+        settings = QSettings("Minified", "Minified")
+        settings.setValue("theme", self.current_theme)
 
         load_stylesheet(QApplication.instance(), self.current_theme)
         self.theme_changed.emit(self.current_theme)

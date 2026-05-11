@@ -22,8 +22,8 @@ import sys
 from typing import override
 
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
-from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QLabel
+from PyQt6.QtCore import QTimer, QSettings
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QFileDialog, QHBoxLayout, QLabel
 
 from core.file_manager import FileManager
 from core.task_manager import TaskManager
@@ -32,7 +32,6 @@ from core.export_manager import ExportManager
 from ui.toast import Toast
 from ui.widgets.log_view import LogView
 from ui.widgets.progress_widget import ProgressWidget
-from ui.widgets.theme_toggle import ThemeToggle
 from ui.widgets.sidebar import Sidebar
 
 class MainWindow(QWidget):
@@ -75,7 +74,7 @@ class MainWindow(QWidget):
 
         # call init functions
         self._init_state()
-        self._build_widgets(initial_theme)
+        self._build_widgets(initial_theme=initial_theme)
         self._build_layouts()
         self._connect_signals()
         self._apply_defaults()
@@ -111,13 +110,9 @@ class MainWindow(QWidget):
         # --- create sidebar via subclass
         self.sidebar = Sidebar(initial_theme=initial_theme)
         
-        # --- file label
+        # create main content
         self.file_label = QLabel("No file selected")
-        
-        # --- progress bar
         self.progress = ProgressWidget()
-
-        # --- output log
         self.output = LogView()
 
     def _build_layouts(self) -> None:
@@ -134,7 +129,7 @@ class MainWindow(QWidget):
         # set layout
         main_layout.addWidget(self.sidebar, 1)
         main_layout.addLayout(content, 4)
-        
+
         self.setLayout(main_layout)
 
     def _connect_signals(self) -> None:
