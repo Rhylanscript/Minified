@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [1.3.7] - 2026-11-05
+### Fixed
+- Anchor colour in the logbox is now more visible for light mode
+
 ## [1.3.6] - 2026-11-05
 ### Fixed
 - Application remembers theming of last session via `QSettings`

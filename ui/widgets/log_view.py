@@ -25,6 +25,10 @@ class LogView(QTextBrowser):
     def __init__(self) -> None:
         super().__init__()
 
+        # set link colour
+        self.document().setDefaultStyleSheet("a {color: #0066cc;}")
+
+        # configure properties
         self.setObjectName("logBox")
         self.setOpenLinks(False)
         self.setOpenExternalLinks(False)
