@@ -10,4 +10,7 @@ utils/__pycache__/
 
 assets/styles/old-styles
 
-# should i ignore pyinstaller idk
+# pyinstaller files
+build/
+dist/
+#__main__.spec

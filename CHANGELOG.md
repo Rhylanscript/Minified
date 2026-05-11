@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## [1.4.2] - 2026-11-05
+### Added 
+- Helper batch files to streamline building, dependency installation, and project cleaning
+- `__main__.spec` to assist in building using pyinstaller
+- App icon placeholder (will be replaced later)
+
 ## [1.4.1] - 2026-11-05
 ### Fixed
 - Cleaned up `requirements.txt`
