@@ -1,2 +1,6 @@
+# PIP MODULES
 pyinstaller
 PyQt6
+
+# NPM MODULES
+esbuild

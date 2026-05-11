@@ -14,6 +14,10 @@ from minifiers import *
 MINIFIERS: list[BaseMinifier] = [
     JSONMinifier(),
     HTMLMinifier(),
+    CSSMinifier(),
+    XMLMinifier(),
+    SVGMinifier(),
+    JSMinifier(),
 ]
 
 def get_minifier(file_extension: str) -> BaseMinifier | None: 

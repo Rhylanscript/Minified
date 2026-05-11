@@ -12,3 +12,7 @@ from .base import BaseMinifier
 
 from .html_minifier import HTMLMinifier
 from .json_minifier import JSONMinifier
+from .css_minifier import CSSMinifier
+from .xml_minifier import XMLMinifier
+from .svg_minifier import SVGMinifier
+from .js_minifier import JSMinifier
