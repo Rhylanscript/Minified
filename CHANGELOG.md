@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [1.4.3] - 2026-12-05
+### Added
+- Minifier for `.lua` files
+
 ## [1.4.2] - 2026-11-05
 ### Added 
 - Helper batch files to streamline building, dependency installation, and project cleaning

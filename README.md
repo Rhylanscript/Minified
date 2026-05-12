@@ -9,6 +9,7 @@ Minified is a useful application which can be used to minify multiple common fil
 - CSS
 - JavaScript
 - SVG/XML
+- LUA
 
 It currently supports multi-files, and drag and dropping, as well as having a comprehensive log system to notify the user of processes and an appealing UI, with toggleable theming for light and dark modes!
 

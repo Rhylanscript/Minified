@@ -16,3 +16,4 @@ from .css_minifier import CSSMinifier
 from .xml_minifier import XMLMinifier
 from .svg_minifier import SVGMinifier
 from .js_minifier import JSMinifier
+from .lua_minifier import LuaMinifier

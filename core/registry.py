@@ -18,6 +18,7 @@ MINIFIERS: list[BaseMinifier] = [
     XMLMinifier(),
     SVGMinifier(),
     JSMinifier(),
+    LuaMinifier(),
 ]
 
 def get_minifier(file_extension: str) -> BaseMinifier | None: 
