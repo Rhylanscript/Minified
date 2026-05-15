@@ -1,0 +1,3 @@
+# recognise .qss as .css on github
+*.qss linguist-language=CSS
+*.qss linguist-detectable=true
